@@ -1,0 +1,2063 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Orbitals · Afterlight</title>
+<style>
+:root{
+  --bg:#03060f; --txt:#eaf6ff; --muted:#8da6c6; --line:rgba(130,190,255,.18);
+  --panel:rgba(7,15,30,.66); --cyan:#3fe0ff; --accent:#7fd0ff; --gold:#ffc24d;
+  --uiScale:1;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;min-height:100dvh;overflow:hidden;background:var(--bg);color:var(--txt);
+  font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;touch-action:none;user-select:none}
+canvas{display:block;width:100vw;height:calc(var(--vh,1vh)*100);height:100dvh;background:#01030a;touch-action:none}
+.hidden{display:none!important}
+.card{background:linear-gradient(180deg,rgba(10,22,44,.55),rgba(3,8,18,.42));border:1px solid var(--line);
+  box-shadow:0 14px 40px rgba(0,0,0,.4),inset 0 0 22px rgba(90,190,255,.05);backdrop-filter:blur(14px);border-radius:18px}
+
+/* ---- HUD ---- */
+.hud{position:fixed;left:0;right:0;top:0;z-index:10;display:grid;grid-template-columns:1fr auto 1fr;gap:8px;
+  align-items:start;padding:calc(env(safe-area-inset-top) + 8px) 9px 0;pointer-events:none}
+.brand{display:flex;gap:9px;align-items:center;padding:7px 11px;min-width:0}
+.logo{width:24px;height:24px;border-radius:50%;border:1.5px solid rgba(190,235,255,.8);position:relative;flex:0 0 auto;
+  box-shadow:0 0 18px rgba(63,224,255,.4)}
+.logo:after{content:"";position:absolute;width:5px;height:5px;border-radius:50%;background:#fff;left:15px;top:4px;box-shadow:0 0 10px #fff}
+.title{font-weight:300;letter-spacing:.42em;font-size:12px;line-height:1.1}
+.subtitle{color:var(--muted);font-size:7.5px;letter-spacing:.34em;margin-top:3px}
+.mapTitle{text-align:center;text-transform:uppercase;letter-spacing:.18em;font-size:11px;font-weight:400;line-height:1.15;
+  padding:8px 14px;max-width:46vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mapTitle small{display:block;color:var(--muted);font-size:8px;letter-spacing:.3em;margin-top:4px}
+.stats{text-align:right;font-size:10px;color:#d9efff;line-height:1.4;min-width:96px;padding:7px 10px;font-variant-numeric:tabular-nums}
+.actions{position:fixed;top:calc(env(safe-area-inset-top) + 8px);right:9px;z-index:11;display:flex;gap:7px}
+.zoomCtl{position:fixed;right:9px;bottom:calc(env(safe-area-inset-bottom) + 54px);z-index:12;display:flex;flex-direction:column;gap:7px}
+.zoomCtl .iconBtn{width:34px;height:34px;font-size:18px}
+.zoomBadge{width:42px;text-align:center;padding:4px 0;border-radius:13px;color:#cfefff;font-size:9px;letter-spacing:.04em;
+  background:rgba(6,13,28,.55);border:1px solid rgba(126,190,255,.2)}
+.iconBtn{width:37px;height:37px;border-radius:50%;display:grid;place-items:center;border:1px solid rgba(126,190,255,.28);
+  background:radial-gradient(circle at 50% 20%,rgba(40,110,180,.3),rgba(5,14,31,.7));color:#eaf8ff;
+  box-shadow:0 0 20px rgba(63,224,255,.12),inset 0 0 14px rgba(63,224,255,.06);font-size:17px;font-weight:600;appearance:none}
+.bottom{position:fixed;left:0;right:0;bottom:0;z-index:10;padding:0 10px calc(env(safe-area-inset-bottom) + 9px);
+  display:flex;justify-content:center;pointer-events:none}
+.help{max-width:min(720px,94vw);text-align:center;color:#cfe5f8;font-size:11px;line-height:1.3;padding:7px 13px;border-radius:16px}
+.toast{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);z-index:35;font-weight:300;letter-spacing:.2em;
+  font-size:clamp(26px,8vw,62px);text-align:center;text-transform:uppercase;text-shadow:0 0 34px rgba(63,224,255,.7);
+  opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+.debug{position:fixed;left:9px;bottom:calc(env(safe-area-inset-bottom) + 52px);z-index:99;max-width:94vw;color:#ffd1d1;
+  background:rgba(70,5,8,.82);border:1px solid rgba(255,120,120,.35);border-radius:12px;padding:8px 10px;font-size:11px;display:none;white-space:pre-wrap}
+
+/* ---- end overlay ---- */
+.endCard{position:fixed;inset:0;z-index:40;display:none;align-items:center;justify-content:center;padding:20px;
+  background:radial-gradient(ellipse at 50% 40%,rgba(20,70,140,.32),rgba(2,6,16,.86) 60%)}
+.endCard.show{display:flex}
+.endInner{width:min(420px,92vw);text-align:center;padding:30px 24px}
+.endInner h2{margin:0 0 6px;font-weight:300;letter-spacing:.22em;text-transform:uppercase;font-size:clamp(26px,7vw,46px)}
+.endInner p{color:var(--muted);margin:0 0 20px;font-size:13px;letter-spacing:.06em}
+.endRow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.endRow .menuBtn{margin:0}
+
+/* ---- menu ---- */
+.menu{position:fixed;inset:0;z-index:50;overflow:auto;touch-action:pan-y;
+  padding:calc(env(safe-area-inset-top) + 16px) 14px calc(env(safe-area-inset-bottom) + 16px);
+  background:radial-gradient(ellipse at 50% 24%,rgba(30,120,255,.26),rgba(3,7,18,.9) 50%,#02040c),
+             radial-gradient(ellipse at 18% 86%,rgba(120,80,255,.12),transparent 48%),
+             radial-gradient(ellipse at 84% 18%,rgba(63,224,255,.12),transparent 52%)}
+.menuInner{position:relative;max-width:1000px;margin:0 auto;min-height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 32px);
+  display:flex;flex-direction:column}
+.menuScreen{display:none;flex:1;align-items:center;justify-content:center;flex-direction:column}
+.menuScreen.active{display:flex}
+.splash{max-width:780px;text-align:center;padding:28px 18px}
+.splashLogo{width:120px;height:120px;margin:0 auto 22px;border-radius:50%;border:1.5px solid rgba(190,235,255,.78);position:relative;
+  box-shadow:0 0 46px rgba(63,224,255,.4),0 0 120px rgba(120,80,255,.12),inset 0 0 34px rgba(63,224,255,.18);
+  animation:breathe 6s ease-in-out infinite}
+@keyframes breathe{0%,100%{box-shadow:0 0 46px rgba(63,224,255,.34),0 0 120px rgba(120,80,255,.1),inset 0 0 34px rgba(63,224,255,.16)}
+  50%{box-shadow:0 0 64px rgba(63,224,255,.5),0 0 150px rgba(120,80,255,.18),inset 0 0 40px rgba(63,224,255,.24)}}
+.splashLogo:after{content:"";position:absolute;width:12px;height:12px;border-radius:50%;background:#fff;left:72px;top:20px;box-shadow:0 0 20px #fff}
+.menu h1{margin:0;font-size:clamp(38px,10vw,86px);letter-spacing:.34em;text-transform:uppercase;font-weight:200;
+  text-shadow:0 0 22px rgba(63,224,255,.55),0 0 60px rgba(63,224,255,.22)}
+.menu h2{margin:0 0 8px;font-size:clamp(22px,5.5vw,40px);letter-spacing:.24em;text-transform:uppercase;font-weight:300}
+.menu p{margin:12px auto 0;color:#aec6e4;font-size:13px;line-height:1.5;max-width:660px}
+.menuTop{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px}
+.backBtn{width:auto;min-width:94px;min-height:40px;padding:0 14px;border-radius:14px;border:1px solid rgba(126,190,255,.26);
+  background:rgba(5,13,28,.5);color:#dff5ff;font-weight:500;letter-spacing:.12em;text-transform:uppercase;font-size:11px;appearance:none}
+.section{width:100%;margin-top:14px}
+.sectionLabel{font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:#9fc0e4;margin:0 0 9px 4px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;width:100%}
+.levelGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(82px,1fr));gap:10px;width:100%}
+.choice{min-height:96px;padding:13px;text-align:left;color:#eaf8ff;border:1px solid rgba(126,190,255,.24);
+  background:linear-gradient(180deg,rgba(12,32,64,.62),rgba(4,11,24,.5));border-radius:16px;appearance:none;position:relative;overflow:hidden}
+.choice.active{border-color:rgba(63,224,255,.78);box-shadow:0 0 22px rgba(63,224,255,.18),inset 0 0 18px rgba(63,224,255,.08)}
+.choice.locked{opacity:.42;filter:grayscale(.4)}
+.choiceTitle{font-weight:500;letter-spacing:.08em;text-transform:uppercase;font-size:12px}
+.choiceMeta{margin-top:6px;color:#90a8c6;font-size:10px;line-height:1.4}
+.choiceTag{position:absolute;top:9px;right:10px;font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
+.lvlNum{font-weight:200;font-size:30px;letter-spacing:.02em;line-height:1}
+.stars{margin-top:6px;letter-spacing:2px;color:var(--gold);font-size:12px;min-height:14px}
+.startRow{width:100%;margin-top:16px;padding-top:10px}
+.menuBtn{width:100%;border:1px solid rgba(63,224,255,.5);background:linear-gradient(180deg,rgba(40,120,210,.4),rgba(8,28,62,.82));
+  color:#ecfbff;border-radius:18px;min-height:54px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;font-size:13px;
+  box-shadow:0 0 30px rgba(63,224,255,.14);appearance:none}
+.primaryStart{max-width:330px;margin-top:30px}
+.iconBtn:active,.menuBtn:active,.choice:active,.backBtn:active{transform:scale(.975)}
+.secondaryStart{margin-top:10px;background:linear-gradient(180deg,rgba(70,110,170,.28),rgba(8,18,40,.8));border-color:rgba(170,205,255,.34)}
+.diffRow{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;width:100%}
+.diffBtn{min-height:64px;border-radius:14px;border:1px solid rgba(126,190,255,.24);background:rgba(6,15,32,.5);color:#eaf8ff;
+  padding:8px;text-align:center;appearance:none}
+.diffBtn.active{border-color:rgba(63,224,255,.75);box-shadow:0 0 18px rgba(63,224,255,.16)}
+.diffBtn b{display:block;font-weight:500;letter-spacing:.08em;font-size:12px;text-transform:uppercase}
+.diffBtn span{display:block;color:#90a8c6;font-size:9px;margin-top:4px;line-height:1.25}
+
+/* ---- config ---- */
+.configPanel{width:min(940px,96vw);padding:16px}
+.configScroll{width:100%;max-height:calc(100vh - 180px);overflow:auto;padding:4px 4px 12px;touch-action:pan-y}
+.configGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:11px}
+.configRow{padding:11px;border:1px solid rgba(126,190,255,.18);border-radius:14px;background:rgba(6,15,32,.42)}
+.configRow label{display:flex;justify-content:space-between;gap:10px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#eaf8ff}
+.configRow b{color:var(--accent);font-weight:600;font-variant-numeric:tabular-nums}
+.configRow small{display:block;margin-top:4px;color:#90a8c6;font-size:10px;line-height:1.3}
+.configRow input[type=range]{width:100%;margin-top:10px;accent-color:#3fe0ff}
+.configActions{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:14px}
+.miniBtn{min-height:44px;border-radius:14px;border:1px solid rgba(126,190,255,.26);background:rgba(5,13,28,.58);color:#eaf8ff;
+  font-weight:500;letter-spacing:.08em;text-transform:uppercase;font-size:11px;appearance:none}
+
+
+/* ---- level editor ---- */
+body.editorMode .hud,
+body.editorMode .bottom,
+body.editorMode .actions,
+body.editorMode .zoomCtl{display:none!important}
+.editorBar{position:fixed;top:calc(env(safe-area-inset-top) + 10px);right:10px;z-index:80;display:flex;gap:8px;pointer-events:auto}
+.editorBar .miniBtn{min-width:92px;background:rgba(5,13,28,.72);backdrop-filter:blur(12px)}
+body.editorMode canvas{cursor:crosshair}
+.editorMode .menu{display:none!important}
+.editorHint{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 12px);transform:translateX(-50%);z-index:80;max-width:min(720px,92vw);
+  text-align:center;color:#cfe5f8;background:rgba(5,13,28,.55);border:1px solid rgba(126,190,255,.18);border-radius:16px;padding:8px 12px;font-size:11px;line-height:1.3;backdrop-filter:blur(12px)}
+.contextMenu{position:fixed;z-index:90;min-width:210px;max-width:280px;padding:8px;border-radius:16px;background:rgba(5,13,28,.88);border:1px solid rgba(126,190,255,.3);
+  box-shadow:0 18px 44px rgba(0,0,0,.45),0 0 28px rgba(63,224,255,.11);backdrop-filter:blur(14px)}
+.contextMenu .ctxTitle{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#9fc0e4;margin:4px 6px 8px}
+.contextMenu button{width:100%;min-height:34px;margin:3px 0;border-radius:11px;border:1px solid rgba(126,190,255,.22);background:rgba(12,32,64,.58);color:#eaf8ff;
+  font-size:11px;letter-spacing:.08em;text-transform:uppercase;appearance:none;text-align:left;padding:0 10px}
+.contextMenu button.danger{border-color:rgba(255,100,120,.35);color:#ffd6dc;background:rgba(80,18,32,.5)}
+.contextMenu button.active{border-color:rgba(63,224,255,.72);box-shadow:0 0 14px rgba(63,224,255,.15)}
+@media(max-width:720px){.editorBar{left:10px;right:10px;justify-content:flex-end}.editorBar .miniBtn{min-width:0;flex:1}.contextMenu{max-width:calc(100vw - 20px)}}
+
+/* ---- clean in-game view: no text boxes over gameplay ---- */
+body.gameClean .hud,
+body.gameClean .bottom{display:none!important}
+
+@media (max-height:480px){
+  .hud{padding-top:4px}
+  .iconBtn{width:32px;height:32px;font-size:15px}
+  .zoomCtl{bottom:calc(env(safe-area-inset-bottom) + 46px)}.zoomCtl .iconBtn{width:29px;height:29px;font-size:16px}
+  .brand{padding:5px 9px}.logo{width:20px;height:20px}
+  .mapTitle{padding:5px 12px;font-size:10px}
+  .help{font-size:10px;padding:5px 11px}
+  .splashLogo{width:84px;height:84px;margin-bottom:14px}
+  .menu h1{font-size:clamp(26px,9vw,46px)}
+  .menuInner{padding-top:0}
+  .choice{min-height:78px;padding:10px}
+  .diffBtn{min-height:52px}
+}
+@media (max-width:560px){
+  .stats{min-width:72px;font-size:9px}
+  .mapTitle{max-width:32vw}
+  .configActions{grid-template-columns:1fr 1fr}
+}
+
+/* ---- rotate-device gate (phones/tablets held in portrait) ---- */
+.rotateGate{position:fixed;inset:0;z-index:999;display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px;
+  background:radial-gradient(ellipse at 50% 40%,rgba(20,70,140,.34),rgba(2,5,14,.97) 72%);text-align:center;padding:26px;color:#eaf6ff}
+.rotateGate.show{display:flex}
+.rotateIcon{width:58px;height:38px;border:2px solid rgba(195,235,255,.85);border-radius:7px;position:relative;
+  box-shadow:0 0 24px rgba(63,224,255,.3);animation:rotateHint 2.1s ease-in-out infinite}
+.rotateIcon:after{content:"";position:absolute;width:5px;height:5px;border-radius:50%;background:rgba(195,235,255,.85);right:5px;top:50%;margin-top:-2.5px}
+@keyframes rotateHint{0%,38%{transform:rotate(0deg)}55%,100%{transform:rotate(90deg)}}
+.rotateTitle{font-size:17px;letter-spacing:.16em;text-transform:uppercase;font-weight:500}
+.rotateSub{font-size:12px;color:#9fc0e4;letter-spacing:.03em;max-width:320px;line-height:1.4}
+</style>
+</head>
+<body>
+<div class="rotateGate" id="rotateGate">
+  <div class="rotateIcon"></div>
+  <div class="rotateTitle" id="rotateTitleTxt">Gira tu dispositivo</div>
+  <div class="rotateSub" id="rotateSubTxt">Orbitals se juega en horizontal, como en escritorio.</div>
+</div>
+<canvas id="game"></canvas>
+
+<div class="hud">
+  <div class="card brand"><div class="logo"></div><div><div class="title">ORBITALS</div><div class="subtitle">AFTERLIGHT</div></div></div>
+  <div class="card mapTitle" id="mapTitle">CONSTELACIÓN<small>CAMPAÑA</small></div>
+  <div class="card stats" id="stats">Listo</div>
+</div>
+<div class="actions">
+  <button class="iconBtn" id="menuBtn" title="Menú">≡</button>
+  <button class="iconBtn" id="pauseBtn" title="Pausa">II</button>
+  <button class="iconBtn" id="speedBtn" title="Velocidad">1×</button>
+  <button class="iconBtn" id="resetBtn" title="Reiniciar">&#8635;</button>
+  <button class="iconBtn" id="fullBtn" title="Pantalla completa">⛶</button>
+</div>
+<div class="zoomCtl">
+  <button class="iconBtn" id="zoomInBtn">+</button>
+  <div class="zoomBadge" id="zoomBadge">100%</div>
+  <button class="iconBtn" id="zoomOutBtn">&minus;</button>
+  <button class="iconBtn" id="centerBtn">&#9678;</button>
+</div>
+<div class="bottom"><div class="card help" id="help">Toca un planeta tuyo y marca el destino. Hacia un planeta: atacar. Hacia un punto vacío: mover y esperar.</div></div>
+<div class="toast" id="toast"></div>
+<div class="debug" id="debug"></div>
+
+<div class="editorBar hidden" id="editorBar">
+  <button type="button" class="miniBtn" id="editorBackBtn">Salir</button>
+  <button type="button" class="miniBtn" id="editorClearBtn">Limpiar</button>
+  <button type="button" class="miniBtn" id="editorSaveBtn">Guardar mapa</button>
+</div>
+<div class="editorHint hidden" id="editorHint">Toca el espacio para crear un planeta. Toca un planeta para cambiar color, tamaño, movimiento o eliminarlo. Usa dos dedos para desplazar el mapa.</div>
+<div class="contextMenu hidden" id="editorMenu"></div>
+
+<div class="endCard" id="endCard"><div class="card endInner">
+  <h2 id="endTitle">Victoria</h2><p id="endText"></p>
+  <div class="endRow">
+    <button class="menuBtn" id="endNextBtn">Siguiente</button>
+    <button class="menuBtn secondaryStart" id="endRetryBtn" style="margin-top:0">Repetir</button>
+  </div>
+  <button class="menuBtn secondaryStart" id="endMenuBtn">Niveles</button>
+</div></div>
+
+<div class="menu" id="menu"><div class="menuInner">
+  <section class="menuScreen active" id="screenTitle"><div class="splash">
+    <div class="splashLogo"></div>
+    <h1>Orbitals</h1>
+    <p id="tagline">Afterlight</p>
+    <p id="pitch">Un planeta. Ríos de luz. Conquista el sistema con estrategia, no con reflejos.</p>
+    <button type="button" class="menuBtn primaryStart" id="beginBtn">Jugar</button>
+    <button type="button" class="menuBtn primaryStart secondaryStart" id="customMapsBtn">Mapas personalizados</button>
+    <button type="button" class="menuBtn primaryStart secondaryStart" id="editorBtn">Editor de niveles</button>
+    <button type="button" class="menuBtn primaryStart secondaryStart" id="configBtn">Ajustes</button>
+  </div></section>
+
+  <section class="menuScreen" id="screenConfig"><div class="section configPanel">
+    <div class="menuTop"><button type="button" class="backBtn" id="backConfigBtn">Atrás</button><h2 id="cfgTitle">Ajustes</h2><span style="width:94px"></span></div>
+    <p id="cfgHint">Los cambios se aplican al instante y se guardan en este dispositivo.</p>
+    <div class="configScroll"><div id="configControls" class="configGrid"></div>
+      <div class="configActions">
+        <button type="button" class="miniBtn" id="configResetBtn">Restaurar</button>
+        <button type="button" class="miniBtn" id="configSaveBtn">Guardar</button>
+        <button type="button" class="miniBtn" id="configLevelsBtn">Niveles</button>
+        <button type="button" class="miniBtn" id="configPlayBtn">Jugar</button>
+      </div>
+    </div>
+  </div></section>
+
+  <section class="menuScreen" id="screenCustom"><div class="section">
+    <div class="menuTop"><button type="button" class="backBtn" id="backCustomBtn">Inicio</button><h2 id="customTitle">Mapas personalizados</h2><span style="width:94px"></span></div>
+    <p id="customIntro">Aquí aparecerán los mapas guardados desde el editor.</p>
+    <div class="levelGrid" id="customMapChoices"></div>
+    <div class="startRow">
+      <button type="button" class="menuBtn" id="customPlayBtn">Jugar mapa</button>
+      <button type="button" class="menuBtn secondaryStart" id="customNewBtn">Crear mapa nuevo</button>
+    </div>
+  </div></section>
+
+  <section class="menuScreen" id="screenGalaxy"><div class="section">
+    <div class="menuTop"><button type="button" class="backBtn" id="backTitleBtn">Inicio</button><h2 id="constTitle">Constelaciones</h2><span style="width:94px"></span></div>
+    <p id="constIntro">Cada constelación añade un giro nuevo a las reglas. Avanza para desbloquear las siguientes.</p>
+    <div class="grid" id="galaxyChoices"></div>
+  </div></section>
+
+  <section class="menuScreen" id="screenMap"><div class="section">
+    <div class="menuTop"><button type="button" class="backBtn" id="backGalaxyBtn">Constelaciones</button><h2 id="levelTitle">Niveles</h2><span style="width:94px"></span></div>
+    <p id="phaseIntro">Elige nivel y dificultad.</p>
+    <div class="sectionLabel" id="lblLevels">Niveles</div>
+    <div class="levelGrid" id="mapChoices"></div>
+    <div class="section"><div class="sectionLabel">Progresión</div><p style="max-width:760px;margin:4px 0 0;color:#90a8c6;font-size:11px;line-height:1.35">La dificultad depende del mapa: más enemigos, mejores posiciones, peligros espaciales y rutas más complejas. Todos los colores compiten en igualdad de condiciones.</p></div>
+    <div class="startRow"><button type="button" class="menuBtn" id="startBtn">Jugar nivel</button></div>
+  </div></section>
+</div></div>
+
+<script>
+(() => { 'use strict';
+/* ============================================================
+   Orbitals · Afterlight — minimalist stream RTS (Auralux-like)
+   Single file, no dependencies. Canvas 2D + Web Audio.
+   ============================================================ */
+const canvas=document.getElementById('game'), ctx=canvas.getContext('2d');
+const $=id=>document.getElementById(id);
+const menu=$('menu'), stats=$('stats'), help=$('help'), title=$('mapTitle'), toast=$('toast'), debug=$('debug');
+const TAU=Math.PI*2;
+const rnd=(a,b)=>a+Math.random()*(b-a), clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), lerp=(a,b,t)=>a+(b-a)*t;
+function rndFixed(seed,a,b){const x=Math.sin(seed*12.9898)*43758.5453;return a+(x-Math.floor(x))*(b-a)}
+function angNorm(a){while(a>Math.PI)a-=TAU;while(a<-Math.PI)a+=TAU;return a}
+function angDelta(a,b){return angNorm(b-a)}
+function angLerp(a,b,t){return a+angDelta(a,b)*clamp(t,0,1)}
+function ease01(t){t=clamp(t,0,1);return t*t*(3-2*t)}
+
+let W=0,H=0,DPR=1, now=0, last=0, running=false, paused=false, gameOver=false, elapsed=0;
+let nodes=[], particles=[], explosions=[], stars=[], clouds=[];
+let wormholes=[], nebulae=[], pulsars=[], hazards=[];
+let selectedSources=new Set();   // selected own planets (their garrison launches)
+let selectedUnits=[];            // selected free/holding own units (redirected)
+let camera={zoom:1,min:.08,max:2.4,x:0,y:0,pinch:false,lastDist:0,lastZoom:1,startMidX:0,startMidY:0,startX:0,startY:0,lastPanX:0,lastPanY:0,lastPanT:0,vx:0,vy:0,gestureWorld:null};
+let lastTap={t:0,x:0,y:0}, dragSelect={active:false,pointerId:null,startX:0,startY:0,moved:false,lastX:0,lastY:0};
+let battleHeat=0; // adaptive-music intensity 0..1
+let previewPoint=null;
+let balance={attacks:0,lastWave:0,totalWave:0,started:0,show:false};
+
+const PALETTE={player:'#3fe0ff', red:'#ff5d73', violet:'#b47bff', gold:'#ffc24d', neutral:'#8392a8'};
+const HOSTILE=new Set(['red','violet','gold']);
+function ownerColor(o){return PALETTE[o]||PALETTE.neutral}
+function isHostile(o){return HOSTILE.has(o)}
+
+/* ---------- performance profile ---------- */
+const PERF={mobile:/Android|iPhone|iPad|iPod/i.test(navigator.userAgent),frame:0};
+PERF.dprMax=PERF.mobile?1.4:1.9;
+PERF.maxParticles=PERF.mobile?520:1400;
+PERF.maxOrbit=PERF.mobile?64:120;       // orbiting dots drawn per sun
+PERF.collideEvery=PERF.mobile?3:2;
+PERF.starDiv=PERF.mobile?9000:6000;
+PERF.fx=PERF.mobile? .7:1;
+
+/* ---------- adaptive FPS + game speed ---------- */
+let _fpsTimes=[], _fpsCur=60;
+function _trackFPS(){_fpsTimes.push(performance.now());while(_fpsTimes.length&&performance.now()-_fpsTimes[0]>1000)_fpsTimes.shift();_fpsCur=Math.max(10,_fpsTimes.length)}
+function _hiLoad(){return _fpsCur<45||particles.length>600}
+
+let gameSpeedStep=0;
+const SPEED_STEPS=[1,2,3];
+
+/* ============================================================
+   SETTINGS
+   ============================================================ */
+const SETTINGS_KEY='orbitals.afterlight.v2.settings';
+const SETTINGS_DEFAULTS={
+  masterVolume:.95, musicVolume:.7, sfxVolume:.8, musicEnabled:1, sfxEnabled:1,
+  musicEpic:1.0, musicBass:1.0, melodyOnActions:1,
+  language:0, graphicsPreset:1, lowPowerMode:0, bloom:1, starDensity:1, nebulaDensity:1, trailLength:1,
+  gameSpeed:1, productionMul:1, enemyMul:1, aiAggression:1,
+  aiAttackMin:20, aiAttackMax:50, aiDefenseReserve:12, aiSkirmishChance:.08,
+  particleSpeed:1, autoUpgrade:1, maxLevelLimits:1, sendFraction:1, hudScale:1, cameraInertia:1, zoomMin:.08, zoomMax:2.8
+};
+const SETTINGS_META=[
+  ['masterVolume','Volumen general','Audio',0,1.4,.01],['musicVolume','Volumen música','Audio',0,1.4,.01],['sfxVolume','Volumen efectos','Audio',0,1.4,.01],
+  ['musicEnabled','Música','Audio',0,1,1],['sfxEnabled','Efectos','Audio',0,1,1],
+  ['musicEpic','Intensidad música','Audio',.3,2,.05],['musicBass','Graves','Audio',0,2,.05],['melodyOnActions','Melodía con acciones','Audio',0,1,1],
+  ['language','Idioma','General',0,1,1],
+  ['graphicsPreset','Preset gráfico','Gráficos',0,3,1],['lowPowerMode','Modo ahorro','Gráficos',0,1,1],['bloom','Brillo / bloom','Gráficos',.3,2,.05],
+  ['starDensity','Densidad estrellas','Gráficos',.25,2.5,.05],['nebulaDensity','Nebulosas','Gráficos',.25,2.5,.05],['trailLength','Longitud estelas','Gráficos',.2,2,.05],
+  ['gameSpeed','Velocidad de juego','Juego',.5,2,.05],['productionMul','Producción','Juego',.5,2.5,.05],['enemyMul','Fuerza enemiga','Juego',.5,2,.05],['aiAggression','Agresividad IA','Juego',.4,2,.05],
+  ['aiAttackMin','Ataque mínimo IA','Juego',8,60,1],['aiAttackMax','Ataque máximo IA','Juego',20,90,1],['aiDefenseReserve','Reserva defensiva IA','Juego',4,40,1],['aiSkirmishChance','Escaramuzas IA','Juego',0,.35,.01],
+  ['particleSpeed','Velocidad unidades','Juego',.5,2,.05],['sendFraction','Proporción de envío','Juego',.25,1,.05],['autoUpgrade','Crecimiento de planetas','Juego',0,1,1],['maxLevelLimits','Límites de evolución','Juego',0,1,1],
+  ['hudScale','Tamaño HUD','Interfaz',.8,1.3,.05],['cameraInertia','Inercia cámara','Cámara',0,2,.05],
+  ['zoomMin','Zoom mínimo','Cámara',.05,1,.01],['zoomMax','Zoom máximo','Cámara',1.2,3.6,.01]
+];
+let SETTINGS={...SETTINGS_DEFAULTS};
+function loadSettings(){try{const raw=localStorage.getItem(SETTINGS_KEY);let saved={};if(raw)saved=JSON.parse(raw)||{};SETTINGS={...SETTINGS_DEFAULTS,...saved};if(saved.zoomFarPatch!==1){SETTINGS.zoomMin=Math.min(Number(SETTINGS.zoomMin)||.08,.08);SETTINGS.zoomMax=Math.max(Number(SETTINGS.zoomMax)||2.8,2.8);SETTINGS.zoomFarPatch=1;try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(SETTINGS))}catch(_){}}}catch(_){SETTINGS={...SETTINGS_DEFAULTS}}applySettingsRuntime(false)}
+function saveSettings(){try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(SETTINGS))}catch(_){}applySettingsRuntime(true)}
+function resetSettings(){SETTINGS={...SETTINGS_DEFAULTS};saveSettings();renderConfigControls()}
+function applySettingsRuntime(updateAudio=true){
+  const low=Number(SETTINGS.lowPowerMode)>=1, preset=Math.round(Number(SETTINGS.graphicsPreset));
+  let fx=1,dpr=1,stars=1;
+  if(preset===0){fx=.6;dpr=.85;stars=.7} else if(preset===2){fx=1.25;dpr=1.1;stars=1.25} else if(preset===3){fx=1.5;dpr=1.2;stars=1.5}
+  if(low){fx*=.6;dpr*=.85;stars*=.7}
+  PERF.fx=(PERF.mobile? .7:1)*fx*Number(SETTINGS.bloom||1);
+  PERF.dprMax=(PERF.mobile?1.4:1.9)*dpr;
+  PERF.starDiv=(PERF.mobile?9000:6000)/Math.max(.2,Number(SETTINGS.starDensity)*stars);
+  camera.min=Number(SETTINGS.zoomMin);camera.max=Number(SETTINGS.zoomMax);camera.zoom=clamp(camera.zoom,camera.min,camera.max);
+  document.documentElement.style.setProperty('--uiScale',Number(SETTINGS.hudScale)||1);
+  if(updateAudio&&masterGain&&audioCtx){
+    masterGain.gain.setTargetAtTime(Number(SETTINGS.masterVolume),audioCtx.currentTime,.05);
+    musicGain.gain.setTargetAtTime(Number(SETTINGS.musicVolume)*Number(SETTINGS.musicEnabled),audioCtx.currentTime,.1);
+    sfxGain.gain.setTargetAtTime(Number(SETTINGS.sfxVolume)*Number(SETTINGS.sfxEnabled),audioCtx.currentTime,.05);
+    if(Number(SETTINGS.musicEnabled)>0){ if(audioUnlocked)startMusicEngine(); applyMusicGains(); }
+    else stopMusicEngine();
+  }
+  applyLanguage();
+}
+
+/* ---------- i18n ---------- */
+const STR={
+  es:{play:'Jugar',settings:'Ajustes',back:'Atrás',home:'Inicio',consts:'Constelaciones',levels:'Niveles',difficulty:'Dificultad',
+    playLevel:'Jugar nivel',restore:'Restaurar',save:'Guardar',next:'Siguiente',retry:'Repetir',
+    tagline:'Afterlight', pitch:'Un planeta. Ríos de luz. Conquista el sistema con estrategia, no con reflejos.',
+    cfgHint:'Los cambios se aplican al instante y se guardan en este dispositivo.',
+    constIntro:'Cada constelación añade un giro nuevo a las reglas. Avanza para desbloquear las siguientes.',
+    phaseIntro:'Elige nivel y dificultad.', mapTitle:'CONSTELACIÓN', campaign:'CAMPAÑA',
+    helpStart:'Toca un planeta tuyo y luego marca el destino. Hacia un planeta = atacar; hacia un punto vacío = mover y esperar. Arrastra para seleccionar varios.',
+    win:'Victoria', lose:'Derrota', locked:'Bloqueado', completeFirst:'Completa el nivel anterior',
+    levelsMenu:'Niveles', rotateTitle:'Gira tu dispositivo', rotateSub:'Orbitals se juega en horizontal, como en escritorio.'},
+  en:{play:'Play',settings:'Settings',back:'Back',home:'Home',consts:'Constellations',levels:'Levels',difficulty:'Difficulty',
+    playLevel:'Play level',restore:'Reset',save:'Save',next:'Next',retry:'Retry',
+    tagline:'Afterlight', pitch:'One planet. Rivers of light. Conquer the system with strategy, not reflexes.',
+    cfgHint:'Changes apply instantly and are saved on this device.',
+    constIntro:'Each constellation adds a new twist. Advance to unlock the next ones.',
+    phaseIntro:'Pick a level and difficulty.', mapTitle:'CONSTELLATION', campaign:'CAMPAIGN',
+    helpStart:'Tap your planet, then mark a destination. Onto a planet = attack; onto empty space = move and wait. Drag to select several.',
+    win:'Victory', lose:'Defeat', locked:'Locked', completeFirst:'Finish the previous level',
+    levelsMenu:'Levels', rotateTitle:'Rotate your device', rotateSub:'Orbitals is played in landscape, just like on desktop.'}
+};
+function T(k){return (Number(SETTINGS.language)>=1?STR.en:STR.es)[k]||k}
+function applyLanguage(){
+  const en=Number(SETTINGS.language)>=1; document.documentElement.lang=en?'en':'es';
+  const set=(id,v)=>{const e=$(id);if(e)e.textContent=v};
+  set('beginBtn',T('play'));set('configBtn',T('settings'));set('backConfigBtn',T('back'));
+  set('configResetBtn',T('restore'));set('configSaveBtn',T('save'));set('configLevelsBtn',T('levelsMenu'));set('configPlayBtn',T('play'));
+  set('backTitleBtn',T('home'));set('backGalaxyBtn',T('consts'));set('cfgTitle',T('settings'));set('cfgHint',T('cfgHint'));
+  set('constTitle',T('consts'));set('constIntro',T('constIntro'));set('levelTitle',T('levels'));set('phaseIntro',T('phaseIntro'));
+  set('lblLevels',T('levels'));set('lblDiff',T('difficulty'));set('startBtn',T('playLevel'));
+  set('tagline',T('tagline'));set('pitch',T('pitch'));
+  set('endNextBtn',T('next'));set('endRetryBtn',T('retry'));set('endMenuBtn',T('levelsMenu'));
+  set('rotateTitleTxt',T('rotateTitle'));set('rotateSubTxt',T('rotateSub'));
+  const mt=$('mapTitle');if(mt&&!running)mt.innerHTML=T('mapTitle')+'<small>'+T('campaign')+'</small>';
+}
+
+/* ============================================================
+   AUDIO — ambient adaptive engine
+   ============================================================ */
+let audioCtx=null, masterGain=null, musicGain=null, sfxGain=null, reverb=null, reverbGain=null;
+let audioUnlocked=false, musicScene='title', musicMood='menu';
+let musicBus=null, padFilter=null, musicOn=false, schedTimer=null, stepDur=.25;
+let musicBag=[], lastPieceIdx=-1;
+
+function makeReverb(seconds=2.4,decay=2.6){
+  const rate=audioCtx.sampleRate, len=Math.floor(rate*seconds), buf=audioCtx.createBuffer(2,len,rate);
+  for(let ch=0;ch<2;ch++){const d=buf.getChannelData(ch);for(let i=0;i<len;i++){d[i]=(Math.random()*2-1)*Math.pow(1-i/len,decay)}}
+  const c=audioCtx.createConvolver();c.buffer=buf;return c;
+}
+function initAudio(){
+  try{
+    if(audioUnlocked){if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();return}
+    const AC=window.AudioContext||window.webkitAudioContext; if(!AC)return;
+    audioCtx=audioCtx||new AC();
+    masterGain=audioCtx.createGain();masterGain.gain.value=Number(SETTINGS.masterVolume);masterGain.connect(audioCtx.destination);
+    reverb=makeReverb(); reverbGain=audioCtx.createGain();reverbGain.gain.value=.55;reverb.connect(reverbGain);reverbGain.connect(masterGain);
+    musicGain=audioCtx.createGain();musicGain.gain.value=Number(SETTINGS.musicVolume)*Number(SETTINGS.musicEnabled);musicGain.connect(masterGain);musicGain.connect(reverb);
+    sfxGain=audioCtx.createGain();sfxGain.gain.value=Number(SETTINGS.sfxVolume)*Number(SETTINGS.sfxEnabled);sfxGain.connect(masterGain);sfxGain.connect(reverb);
+    audioUnlocked=true;
+    if(audioCtx.state==='suspended')audioCtx.resume();
+    if(Number(SETTINGS.musicEnabled)>0)startMusicEngine();
+  }catch(_){audioUnlocked=false}
+}
+function tone(freq,dur,type='sine',vol=.2,when=0,dest=null,glide=0){
+  if(!audioCtx)return null;const t=audioCtx.currentTime+when,o=audioCtx.createOscillator(),g=audioCtx.createGain();
+  o.type=type;o.frequency.setValueAtTime(freq,t);
+  if(glide)o.frequency.exponentialRampToValueAtTime(Math.max(1,glide),t+dur);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+Math.min(.05,dur*.3));g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.connect(g);g.connect(dest||sfxGain);o.start(t);o.stop(t+dur+.05);return o;
+}
+function noise(dur=.3,vol=.18,when=0,f0=1200,f1=120,type='lowpass'){
+  if(!audioCtx)return;const t=audioCtx.currentTime+when,n=Math.floor(audioCtx.sampleRate*dur),buf=audioCtx.createBuffer(1,n,audioCtx.sampleRate),d=buf.getChannelData(0);
+  for(let i=0;i<n;i++){const k=1-i/n;d[i]=(Math.random()*2-1)*k*k}
+  const s=audioCtx.createBufferSource(),fl=audioCtx.createBiquadFilter(),g=audioCtx.createGain();
+  s.buffer=buf;fl.type=type;fl.frequency.setValueAtTime(f0,t);fl.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t+dur);
+  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  s.connect(fl);fl.connect(g);g.connect(sfxGain);s.start(t);s.stop(t+dur+.03);
+}
+/* ----- SFX ----- */
+const SCALE_PENT=[0,2,4,7,9]; // major pentatonic degrees (semitones)
+function semis(root,deg){return root*Math.pow(2,deg/12)}
+const IMPACT_CHORDS=[
+  {root:65.41, notes:[0,7,12,16]},      // C2-ish luminous major
+  {root:55.00, notes:[0,5,12,15]},      // deep suspended impact
+  {root:73.42, notes:[0,3,7,12]},       // minor sci-fi impact
+  {root:82.41, notes:[0,7,10,17]},      // open space chord
+  {root:49.00, notes:[0,4,11,14]}       // dark metallic chord
+];
+let impactChordCursor=0, lastImpactSfxAt=0;
+function harmonicImpact(power=1){
+  if(!audioCtx)return;
+  const t=audioCtx.currentTime;
+  // Collisions can happen in clusters. Keep the sound musical instead of turning into noise.
+  if(t-lastImpactSfxAt<0.035)return;
+  lastImpactSfxAt=t;
+  const ch=IMPACT_CHORDS[impactChordCursor++%IMPACT_CHORDS.length], r=ch.root, p=clamp(power,.45,1.6);
+  // Soft cinematic thump + filtered air, then a small chord bloom.
+  tone(r*.55,.62,'sine',.075*p,0,null,r*.28);
+  tone(r*.98,.36,'triangle',.038*p,.015,null,r*.7);
+  noise(.24,.07*p,0,3400,190,'lowpass');
+  noise(.09,.025*p,.045,6800,1800,'bandpass');
+  ch.notes.forEach((deg,i)=>{
+    const octave=i<2?2:3;
+    tone(semis(r,deg)*octave,.34+i*.045,i%2?'triangle':'sine',(.022-i*.002)*p,.035+i*.025,null);
+  });
+  const top=semis(r,ch.notes[ch.notes.length-1]+12)*2;
+  tone(top,.9,'sine',.014*p,.11,null);
+  if(Math.random()<.38) tone(top*1.5,.45,'triangle',.008*p,.19,null);
+}
+function sfx(kind,arg){
+  if(!audioUnlocked||!audioCtx||Number(SETTINGS.sfxEnabled)<=0)return;
+  if(kind==='send'){ // melodic pluck, degree from scale
+    if(Number(SETTINGS.melodyOnActions)<=0){tone(523,.12,'sine',.08);return}
+    const root=261.63, deg=SCALE_PENT[(arg||0)%SCALE_PENT.length]+12*((arg||0)>=SCALE_PENT.length?1:0);
+    tone(semis(root,deg),.5,'triangle',.12,0,null);tone(semis(root,deg)*2,.4,'sine',.05,.02);
+  }else if(kind==='select'){ tone(880,.07,'triangle',.07);tone(1320,.06,'sine',.035,.03) }
+  else if(kind==='capture'){ const r=261.63;[0,4,7,12].forEach((d,i)=>tone(semis(r,d),.5,'sine',.1-i*.012,i*.06));tone(r*2,.7,'triangle',.04,.18); harmonicImpact(.7) }
+  else if(kind==='upgrade'){ const r=523.25;[0,7,12,16].forEach((d,i)=>tone(semis(r,d),.45,'triangle',.07,i*.05));noise(.18,.05,0,2200,400,'bandpass') }
+  else if(kind==='hit'){ harmonicImpact(.9) }
+  else if(kind==='lost'){ harmonicImpact(1.15); noise(.42,.09,.02,650,55,'lowpass'); tone(120,.8,'sawtooth',.035,.04,null,30) }
+  else if(kind==='pulsar'){ harmonicImpact(1.25); noise(.5,.12,0,1800,120);tone(70,.7,'sine',.06,0,null,30) }
+}
+
+/* ----- epic music engine -----
+   A repertoire of pieces shared between menus ("epic space", lush/slow) and
+   in-game phases ("epic sci-fi", driving/rhythmic) — same musical identity,
+   different dress. Played back-to-back from a shuffled bag with no repeats
+   until the whole repertoire has been heard. */
+const PIECES=[
+  {name:'Aurora Drift',     root:55.00, shape:[0,7,12,16], moves:[0,-4,3,-2], motif:[0,3,7,10,7,3,0],  bpm:64,  bright:.42},
+  {name:'Solar Vigil',      root:49.00, shape:[0,7,12,15], moves:[0,5,-2,7],  motif:[0,2,7,9,7,2,0],   bpm:70,  bright:.50},
+  {name:'Stellar March',    root:61.74, shape:[0,7,11,16], moves:[0,-5,1,-2], motif:[0,1,4,7,4,1,0],   bpm:84,  bright:.62},
+  {name:'Nebula Hymn',      root:51.91, shape:[0,5,12,17], moves:[0,3,-2,-7], motif:[0,3,5,8,5,3,0],   bpm:58,  bright:.38},
+  {name:'Ion Tide',         root:65.41, shape:[0,7,10,15], moves:[0,-3,5,-5], motif:[0,2,5,9,5,2,0],   bpm:92,  bright:.68},
+  {name:'Vanguard Sky',     root:73.42, shape:[0,7,12,19], moves:[0,5,8,3],   motif:[0,4,7,11,7,4,0],  bpm:96,  bright:.72},
+  {name:'Quiet Pulsar',     root:46.25, shape:[0,7,12,14], moves:[0,-2,3,-5], motif:[0,2,3,7,3,2,0],   bpm:60,  bright:.35},
+  {name:'Singular Dawn',    root:55.00, shape:[0,4,7,12],  moves:[0,5,9,2],   motif:[0,4,9,12,9,4,0],  bpm:78,  bright:.80},
+  {name:'Coronal Drift',    root:41.20, shape:[0,7,12,15], moves:[0,-5,-8,-3],motif:[0,3,7,8,7,3,0],   bpm:66,  bright:.40},
+  {name:'Helios Ascent',    root:87.31, shape:[0,5,7,12],  moves:[0,3,7,-2],  motif:[0,3,5,7,10,7,5],  bpm:100, bright:.75},
+  {name:'Dark Constellation',root:43.65,shape:[0,6,12,15], moves:[0,-1,4,-3], motif:[0,1,6,7,6,1,0],   bpm:72,  bright:.30},
+  {name:'Last Horizon',     root:58.27, shape:[0,7,12,16], moves:[0,8,3,-2],  motif:[0,4,7,12,7,4,0],  bpm:68,  bright:.50},
+  {name:'Event Horizon',    root:92.50, shape:[0,7,12,18], moves:[0,-3,4,-6], motif:[0,3,6,10,6,3,0],  bpm:88,  bright:.58},
+  {name:'Wandering Comet',  root:38.89, shape:[0,5,12,16], moves:[0,7,-3,4],  motif:[0,2,5,7,5,2,0],   bpm:62,  bright:.44},
+  {name:'Crimson Nebula',   root:69.30, shape:[0,6,11,17], moves:[0,-2,5,-4], motif:[0,1,5,8,5,1,0],   bpm:90,  bright:.66},
+  {name:'Frontier Anthem',  root:82.41, shape:[0,7,12,17], moves:[0,5,2,-3],  motif:[0,4,7,9,7,4,0],   bpm:102, bright:.78}
+];
+const SCHED_AHEAD=0.34, SCHED_INTERVAL_MS=110, STEPS_PER_BAR=8, CHORD_CHANGE_BARS=2;
+let curPiece=null, chordIdx=0, motifPos=0, stepIndex=0, pieceStepStart=0, pieceBarsTotal=20, nextStepTime=0;
+let bassNodes=[], padVoices=[], tensionNode=null;
+function epicAmt(){return Number(SETTINGS.musicEpic||1)}
+function bassAmt(){return Number(SETTINGS.musicBass||1)}
+function chordTones(p,idx){ const ro=p.moves[((idx%p.moves.length)+p.moves.length)%p.moves.length]; return p.shape.map(s=>semis(p.root,ro+s)) }
+function playTone(time,freq,dur,type,vol,dest){
+  if(!audioCtx)return; const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+  o.type=type;o.frequency.setValueAtTime(freq,time);
+  g.gain.setValueAtTime(0,time);g.gain.linearRampToValueAtTime(vol,time+Math.min(.06,dur*.3));g.gain.exponentialRampToValueAtTime(.0001,time+dur);
+  o.connect(g);g.connect(dest||musicBus);o.start(time);o.stop(time+dur+.06);
+}
+function playNoise(time,dur,vol,f0,f1,type,dest){
+  if(!audioCtx)return; const n=Math.max(1,Math.floor(audioCtx.sampleRate*dur)),buf=audioCtx.createBuffer(1,n,audioCtx.sampleRate),d=buf.getChannelData(0);
+  for(let i=0;i<n;i++){const k=1-i/n;d[i]=(Math.random()*2-1)*k*k}
+  const s=audioCtx.createBufferSource(),fl=audioCtx.createBiquadFilter(),g=audioCtx.createGain();
+  s.buffer=buf;fl.type=type||'lowpass';fl.frequency.setValueAtTime(f0,time);fl.frequency.exponentialRampToValueAtTime(Math.max(20,f1),time+dur);
+  g.gain.setValueAtTime(vol,time);g.gain.exponentialRampToValueAtTime(.0001,time+dur);
+  s.connect(fl);fl.connect(g);g.connect(dest||musicBus);s.start(time);s.stop(time+dur+.04);
+}
+function brassTone(time,freq,dur,vol,punchy){
+  if(!audioCtx)return; const o=audioCtx.createOscillator(),o2=audioCtx.createOscillator(),g=audioCtx.createGain(),fl=audioCtx.createBiquadFilter();
+  o.type='sawtooth';o2.type='sawtooth';o2.detune.value=7;
+  o.frequency.setValueAtTime(freq*(punchy? .998:.99),time);o.frequency.linearRampToValueAtTime(freq,time+(punchy? .05:.4));
+  o2.frequency.setValueAtTime(freq,time);
+  fl.type='lowpass';fl.frequency.setValueAtTime(punchy?2200:1400,time);fl.Q.value=.7;
+  const atk=punchy? .02:.6; g.gain.setValueAtTime(0,time);g.gain.linearRampToValueAtTime(vol,time+atk);g.gain.exponentialRampToValueAtTime(.0001,time+dur);
+  o.connect(fl);o2.connect(fl);fl.connect(g);g.connect(musicBus);o.start(time);o2.start(time);o.stop(time+dur+.1);o2.stop(time+dur+.1);
+}
+/* shuffle-without-repeat playlist, drawn from the whole repertoire */
+function nextPieceIdx(){
+  if(musicBag.length===0){
+    musicBag=PIECES.map((_,i)=>i);
+    for(let i=musicBag.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[musicBag[i],musicBag[j]]=[musicBag[j],musicBag[i]]}
+    if(musicBag.length>1 && musicBag[0]===lastPieceIdx){const k=1+Math.floor(Math.random()*(musicBag.length-1));[musicBag[0],musicBag[k]]=[musicBag[k],musicBag[0]]}
+  }
+  const idx=musicBag.shift(); lastPieceIdx=idx; return idx;
+}
+function buildPieceLayers(){
+  const p=curPiece, e=epicAmt(), b=bassAmt();
+  bassNodes=[ makePad(p.root*.5,.075*b*e*.7,'sine',musicBus), makePad(p.root,.05*b*e*.7,'sine',musicBus) ];
+  const tones=chordTones(p,0);
+  padVoices=tones.map(f=>makePad(f,.026*e,'triangle',padFilter));
+  padVoices.push(makePad(tones[tones.length-1]*2,.014*e,'sine',padFilter)); // airy top voice for "epic choir" lift
+  const to=audioCtx.createOscillator(),tf=audioCtx.createBiquadFilter(),tg=audioCtx.createGain();
+  to.type='sawtooth';to.frequency.value=p.root*2;to.detune.value=9;tf.type='lowpass';tf.frequency.value=900;tg.gain.value=0;
+  to.connect(tf);tf.connect(tg);tg.connect(musicBus);to.start();tensionNode={o:to,g:tg};
+}
+function ensurePiece(){
+  if(curPiece)return;
+  const idx=nextPieceIdx(); curPiece=PIECES[idx];
+  chordIdx=0; motifPos=0; pieceStepStart=stepIndex; pieceBarsTotal=20+Math.floor(rnd(0,12));
+  stepDur=60/curPiece.bpm/2;
+  buildPieceLayers();
+}
+function finishPiece(time){
+  const old=bassNodes.concat(padVoices).concat(tensionNode?[tensionNode]:[]);
+  for(const v of old){ if(v&&v.g) v.g.gain.setTargetAtTime(0,time,2.1) }
+  setTimeout(()=>{ for(const v of old){ try{ if(v&&v.o)v.o.stop(audioCtx.currentTime+.05) }catch(_){} } },5400);
+  bassNodes=[]; padVoices=[]; tensionNode=null; curPiece=null;
+}
+function playMotifSwell(time,punchy){
+  const p=curPiece; const deg=p.motif[motifPos%p.motif.length]; motifPos++;
+  const f=semis(p.root,deg)*2, dur=punchy? .85:3.0, vol=(punchy? .05:.045)*epicAmt();
+  brassTone(time,f,dur,vol,!!punchy);
+}
+function playArpNote(time,stepInBar){
+  const p=curPiece, tones=chordTones(p,chordIdx), f=tones[stepInBar%tones.length]*2, heat=battleHeat;
+  playTone(time,f,.22,'triangle',(.05+heat*.02)*epicAmt(),musicBus);
+  if(heat>.75 && stepInBar%2===0) playTone(time,f*1.5,.16,'sawtooth',.035*epicAmt(),musicBus);
+}
+function playPercussion(time,stepInBar){
+  const heat=battleHeat, energy=.5+heat*.6;
+  if(stepInBar%4===0) playNoise(time,.16,.09*energy,170,40,'lowpass');
+  else if(stepInBar%2===0) playNoise(time,.05,.032*energy,6000,2500,'highpass');
+  if(stepInBar===6 && Math.random()<.4) playNoise(time,.3,.05*energy,3000,400,'bandpass');
+  if(heat>.7){ // aggressive layer kicks in only when battle heat is near max
+    if(stepInBar%2===1) playNoise(time,.1,.07*energy,260,60,'lowpass');
+    if(stepInBar%4===2 && Math.random()<.6) playNoise(time,.12,.045*energy,5000,1800,'bandpass');
+  }
+}
+function scheduleStep(stepTime){
+  if(!curPiece)ensurePiece();
+  const p=curPiece, local=stepIndex-pieceStepStart, stepInBar=local%STEPS_PER_BAR, bar=Math.floor(local/STEPS_PER_BAR);
+  if(stepInBar===0){
+    if(bar>=pieceBarsTotal){ finishPiece(stepTime); return }
+    const nc=Math.floor(bar/CHORD_CHANGE_BARS)%p.moves.length;
+    if(nc!==chordIdx){
+      chordIdx=nc; const tones=chordTones(p,chordIdx);
+      padVoices.forEach((v,i)=>{ if(!v||!v.o)return; const isAir=i===padVoices.length-1;
+        const f=tones[i%tones.length]*(isAir?2:1); v.o.frequency.setTargetAtTime(f,stepTime,1.5); });
+      if(Number(SETTINGS.melodyOnActions)>0) playTone(stepTime,semis(p.root,p.moves[chordIdx])*2,2.0,'sine',.02*epicAmt(),musicBus);
+    }
+    if(padFilter) padFilter.frequency.setTargetAtTime(560+p.bright*700+battleHeat*1400+(musicMood==='menu'?160:0)+rnd(-30,50),stepTime,2.2);
+  }
+  if(tensionNode){
+    const heat=musicMood==='game'?battleHeat:0;
+    tensionNode.g.gain.setTargetAtTime(Math.pow(heat,2)*.07*epicAmt(),stepTime,.5);
+    tensionNode.o.frequency.setTargetAtTime(semis(p.root,p.moves[chordIdx])*2,stepTime,.8);
+  }
+  if(musicMood==='menu'){
+    if(stepInBar===0 && bar%2===0) playMotifSwell(stepTime,false);
+  } else {
+    if(stepInBar%2===0) playArpNote(stepTime,stepInBar);
+    if(stepInBar===0) playMotifSwell(stepTime,true);
+    playPercussion(stepTime,stepInBar);
+  }
+}
+function musicSchedulerTick(){
+  if(!musicOn||!audioCtx)return;
+  while(nextStepTime<audioCtx.currentTime+SCHED_AHEAD){ scheduleStep(nextStepTime); stepIndex++; nextStepTime+=stepDur }
+  schedTimer=setTimeout(musicSchedulerTick,SCHED_INTERVAL_MS);
+}
+function makePad(freq,vol,type,dest){
+  const o=audioCtx.createOscillator(),g=audioCtx.createGain(),lfo=audioCtx.createOscillator(),lg=audioCtx.createGain();
+  o.type=type;o.frequency.value=freq;o.detune.value=rnd(-6,6);
+  lfo.frequency.value=.03+Math.random()*.06;lg.gain.value=2+Math.random()*4;lfo.connect(lg);lg.connect(o.detune);
+  g.gain.value=0;g.gain.setTargetAtTime(vol,audioCtx.currentTime,2.8);
+  o.connect(g);g.connect(dest);lfo.start();o.start();return {o,g};
+}
+function applyMusicGains(){
+  if(!audioCtx||!musicBus)return; const e=epicAmt(),b=bassAmt();
+  musicBus.gain.setTargetAtTime(.55*e,audioCtx.currentTime,.5);
+  if(bassNodes[0])bassNodes[0].g.gain.setTargetAtTime(.075*b*e*.7,audioCtx.currentTime,.6);
+  if(bassNodes[1])bassNodes[1].g.gain.setTargetAtTime(.05*b*e*.7,audioCtx.currentTime,.6);
+}
+function startMusicEngine(){
+  if(!audioCtx||Number(SETTINGS.musicEnabled)<=0||musicOn)return;
+  musicOn=true;
+  musicBus=audioCtx.createGain();musicBus.gain.value=.55*epicAmt();musicBus.connect(musicGain);musicBus.connect(reverb);
+  padFilter=audioCtx.createBiquadFilter();padFilter.type='lowpass';padFilter.frequency.value=900;padFilter.Q.value=.6;padFilter.connect(musicBus);
+  stepDur=60/72/2; nextStepTime=audioCtx.currentTime+.05; stepIndex=0; pieceStepStart=0; curPiece=null;
+  musicSchedulerTick();
+}
+function stopMusicEngine(){
+  if(!musicOn)return; musicOn=false;
+  if(schedTimer){clearTimeout(schedTimer);schedTimer=null}
+  if(musicBus&&audioCtx)musicBus.gain.setTargetAtTime(0,audioCtx.currentTime,.3);
+  const old=bassNodes.concat(padVoices).concat(tensionNode?[tensionNode]:[]);
+  setTimeout(()=>{ for(const v of old){ try{ if(v&&v.o)v.o.stop() }catch(_){} } try{ if(musicBus)musicBus.disconnect() }catch(_){} },600);
+  bassNodes=[]; padVoices=[]; tensionNode=null; curPiece=null; musicBus=null; padFilter=null;
+}
+function setMusicScene(scene){
+  musicScene=scene||'title'; musicMood=(musicScene==='game')?'game':'menu';
+  if(audioUnlocked&&audioCtx){ if(Number(SETTINGS.musicEnabled)>0)startMusicEngine(); applyMusicGains(); }
+}
+
+/* ============================================================
+   CAMPAIGN DATA — constellations -> levels
+   node: [nx, ny, owner, size]   owner: player|red|violet|gold|neutral   size: s|m|l
+   ============================================================ */
+const SIZES={s:{r:13,prod:1.0,def:8}, m:{r:24,prod:1.0,def:15}, l:{r:39,prod:1.0,def:24}};
+const FACTION_START=14;   // all colours start from the same rules; later maps are harder by layout, not by a manual selector
+const AI_TYPES=['expander','hunter','defender','opportunist','swarm','empire'];
+function aiBrainFor(owner,i,c,l,size){
+  if(owner==='red')return ['expander','swarm','hunter','expander'][(i+c+l)%4];
+  if(owner==='violet')return ['hunter','opportunist','expander','hunter'][(i+c+l)%4];
+  if(owner==='gold')return ['empire','defender','opportunist','empire'][(i+c+l)%4];
+  return AI_TYPES[(i+c+l)%AI_TYPES.length];
+}
+const DIFF=[
+  {name:'Mapa vivo', key:'map0', meta:'Progresión por mapa', aiMul:.92, enemyBonus:0, enemyProd:1},
+  {name:'Mapa avanzado', key:'map1', meta:'Progresión por mapa', aiMul:1.00, enemyBonus:0, enemyProd:1},
+  {name:'Mapa experto', key:'map2', meta:'Progresión por mapa', aiMul:1.08, enemyBonus:0, enemyProd:1},
+  {name:'Mapa final', key:'map3', meta:'Progresión por mapa', aiMul:1.16, enemyBonus:0, enemyProd:1}
+];
+function mapDifficultyIndex(g,l,lvl){ const t=(lvl&&typeof lvl.tier==='number')?lvl.tier:(g*5+l); return t<10?0:(t<25?1:(t<40?2:3)); }
+const CONSTS=[{"name":"Primera Luz","meta":"Fundamentos del enjambre","twist":"basics","levels":[{"name":"Despertar","nodes":[[-0.72,0,"player","m"],[0.72,0.0,"red","l"],[0.04,0.03,"neutral","s"],[0.28,-0.03,"neutral","m"],[-0.04,0.39,"neutral","s"],[0.52,0.23,"neutral","s"]],"tier":0},{"name":"Cruce Gris","nodes":[[-0.66,0.42,"player","m"],[0.63,0.35,"red","m"],[-0.32,-0.03,"neutral","s"],[0.0,-0.33,"neutral","m"],[-0.44,-0.28,"neutral","s"],[-0.52,0.28,"neutral","s"],[0.0,0.59,"neutral","m"]],"tier":1},{"name":"Primer Asedio","nodes":[[-0.66,-0.42,"player","m"],[0.38,0.61,"red","m"],[0.32,-0.03,"neutral","s"],[0.0,0.39,"neutral","m"],[0.44,0.23,"neutral","s"],[0.52,-0.23,"neutral","s"],[0.0,-0.65,"neutral","m"],[0.68,0.03,"neutral","l"]],"tier":2},{"name":"Frente Abierto","nodes":[[0,-0.74,"player","m"],[0.03,0.72,"red","m"],[-0.04,-0.33,"neutral","s"],[-0.48,-0.28,"neutral","m"],[-0.44,0.28,"neutral","s"],[-0.04,0.59,"neutral","s"],[-0.72,0.03,"neutral","m"],[-0.21,0.59,"neutral","l"],[-0.29,-0.59,"neutral","s"]],"tier":3},{"name":"Corona Inicial","nodes":[[-0.78,0.24,"player","m"],[0.33,-0.66,"red","l"],[0.04,0.33,"neutral","s"],[0.48,0.28,"neutral","m"],[0.44,-0.28,"neutral","s"],[0.04,-0.59,"neutral","s"],[0.72,-0.03,"neutral","m"],[0.21,-0.59,"neutral","l"],[0.29,0.59,"neutral","s"],[-0.28,0.03,"neutral","m"]],"tier":4}]},{"name":"Órbita Interior","meta":"Mapas móviles suaves","twist":"orbit","levels":[{"name":"Marea Lenta","nodes":[[-0.66,0.42,"player","m"],[0.67,0.26,"red","m"],[-0.32,-0.03,"neutral","s"],[0.0,-0.33,"neutral","m"],[-0.44,-0.28,"neutral","s"],[-0.52,0.28,"neutral","s"]],"orbit":1,"tier":5},{"name":"Anillo Bajo","nodes":[[-0.66,-0.42,"player","m"],[0.46,0.55,"red","m"],[0.32,0.03,"neutral","s"],[0.0,0.33,"neutral","m"],[0.44,0.28,"neutral","s"],[0.52,-0.28,"neutral","s"],[0.0,-0.59,"neutral","m"]],"orbit":1,"tier":6},{"name":"Danza Fría","nodes":[[0,-0.74,"player","m"],[0.13,0.71,"red","m"],[-0.04,-0.39,"neutral","s"],[-0.48,-0.23,"neutral","m"],[-0.44,0.23,"neutral","s"],[-0.04,0.65,"neutral","s"],[-0.72,-0.03,"neutral","m"],[-0.21,0.65,"neutral","l"]],"orbit":1,"tier":7},{"name":"Paso Inclinado","nodes":[[-0.78,0.24,"player","m"],[-0.23,0.68,"red","l"],[0.04,0.33,"neutral","s"],[0.48,0.28,"neutral","m"],[0.44,-0.28,"neutral","s"],[0.04,-0.59,"neutral","s"],[0.72,-0.03,"neutral","m"],[0.21,-0.59,"neutral","l"],[0.29,0.59,"neutral","s"]],"orbit":1,"tier":8},{"name":"Deriva Mayor","nodes":[[-0.78,-0.24,"player","m"],[-0.54,0.48,"red","m"],[-0.52,-0.23,"neutral","s"],[-0.48,0.23,"neutral","m"],[0.04,0.65,"neutral","s"],[-0.76,-0.03,"neutral","s"],[-0.25,0.65,"neutral","m"],[-0.21,-0.65,"neutral","l"],[-0.04,0.03,"neutral","s"],[0.28,-0.03,"neutral","m"]],"orbit":1,"tier":9}]},{"name":"Frontera Roja","meta":"Rivales mejor posicionados","twist":"frontier","levels":[{"name":"Avance Rojo","nodes":[[-0.66,-0.42,"player","m"],[0.53,0.49,"red","m"],[0.32,-0.03,"neutral","s"],[0.0,0.39,"neutral","m"],[0.44,0.23,"neutral","s"],[0.52,-0.23,"neutral","s"],[0.0,-0.65,"neutral","m"]],"orbit":1,"tier":10},{"name":"Pinza Lejana","nodes":[[0,-0.74,"player","m"],[0.23,0.68,"red","m"],[-0.04,-0.39,"neutral","s"],[-0.48,-0.23,"neutral","m"],[-0.44,0.23,"neutral","s"],[-0.04,0.65,"neutral","s"],[-0.72,-0.03,"neutral","m"],[-0.21,0.65,"neutral","l"]],"orbit":1,"tier":11},{"name":"Nexo Central","nodes":[[-0.78,0.24,"player","m"],[-0.14,0.71,"red","l"],[-0.54,-0.47,"violet","m"],[0.04,0.39,"neutral","s"],[0.48,0.23,"neutral","m"],[0.44,-0.23,"neutral","s"],[0.04,-0.65,"neutral","s"],[0.72,0.03,"neutral","m"],[0.21,-0.65,"neutral","l"],[0.29,0.65,"neutral","s"]],"orbit":1,"tier":12},{"name":"Dos Frentes","nodes":[[-0.78,-0.24,"player","m"],[-0.46,0.55,"red","m"],[-0.25,-0.68,"violet","m"],[-0.52,-0.28,"neutral","s"],[-0.48,0.28,"neutral","m"],[0.04,0.59,"neutral","s"],[-0.76,0.03,"neutral","s"],[-0.25,0.59,"neutral","m"],[-0.21,-0.59,"neutral","l"],[-0.04,-0.03,"neutral","s"],[0.28,0.03,"neutral","m"]],"orbit":1,"tier":13},{"name":"Frontera Viva","nodes":[[-0.52,-0.58,"player","m"],[-0.67,0.25,"red","m"],[0.12,-0.71,"violet","m"],[0.52,0.23,"neutral","s"],[0.48,-0.23,"neutral","m"],[-0.04,-0.65,"neutral","s"],[0.76,0.03,"neutral","s"],[0.25,-0.65,"neutral","m"],[0.21,0.65,"neutral","l"],[-0.25,-0.03,"neutral","s"],[0.0,-0.33,"neutral","m"],[-0.52,-0.28,"neutral","s"]],"orbit":1,"tier":14}]},{"name":"Tríada","meta":"Tres colores en guerra","twist":"multi","levels":[{"name":"Tercer Fuego","nodes":[[0,-0.74,"player","m"],[0.32,0.64,"red","m"],[-0.72,-0.05,"violet","l"],[-0.04,-0.33,"neutral","s"],[-0.48,-0.28,"neutral","m"],[-0.44,0.28,"neutral","s"],[-0.04,0.59,"neutral","s"],[-0.72,0.03,"neutral","m"]],"orbit":1,"tier":15},{"name":"Equilibrio Roto","nodes":[[-0.78,0.24,"player","m"],[-0.04,0.72,"red","l"],[-0.61,-0.39,"violet","m"],[0.04,0.33,"neutral","s"],[0.48,0.28,"neutral","m"],[0.44,-0.28,"neutral","s"],[0.04,-0.59,"neutral","s"],[0.72,-0.03,"neutral","m"],[0.21,-0.59,"neutral","l"]],"orbit":1,"tier":16},{"name":"Tres Puertas","nodes":[[-0.78,-0.24,"player","m"],[-0.38,0.61,"red","m"],[0.35,0.65,"violet","m"],[-0.52,-0.28,"neutral","s"],[-0.48,0.28,"neutral","m"],[0.04,0.59,"neutral","s"],[-0.76,0.03,"neutral","s"],[-0.25,0.59,"neutral","m"],[-0.21,-0.59,"neutral","l"],[-0.04,-0.03,"neutral","s"]],"orbit":1,"tier":17},{"name":"Nudo de Luz","nodes":[[-0.52,-0.58,"player","m"],[-0.63,0.35,"red","m"],[-0.02,0.74,"violet","m"],[0.52,0.28,"neutral","s"],[0.48,-0.28,"neutral","m"],[-0.04,-0.59,"neutral","s"],[0.76,-0.03,"neutral","s"],[0.25,-0.59,"neutral","m"],[0.21,0.59,"neutral","l"],[-0.25,0.03,"neutral","s"],[0.0,-0.39,"neutral","m"]],"orbit":1,"tier":18},{"name":"Triángulo Mayor","nodes":[[-0.52,0.58,"player","m"],[0.74,0.01,"red","m"],[0.37,-0.62,"violet","l"],[0.35,0.63,"gold","m"],[-0.52,0.23,"neutral","s"],[0.0,0.65,"neutral","m"],[-0.68,-0.03,"neutral","s"],[-0.29,0.65,"neutral","s"],[-0.25,-0.65,"neutral","m"],[0.04,0.03,"neutral","l"],[0.25,-0.03,"neutral","s"],[0.0,0.39,"neutral","m"],[0.52,0.23,"neutral","s"]],"orbit":1,"tier":19}]},{"name":"Corona Solar","meta":"Rutas quemadas por soles","twist":"solar","levels":[{"name":"Brasa Lateral","nodes":[[-0.78,0.24,"player","m"],[0.07,0.72,"red","l"],[0.67,0.31,"violet","m"],[0.04,0.33,"neutral","s"],[0.48,0.28,"neutral","m"],[0.44,-0.28,"neutral","s"],[0.04,-0.59,"neutral","s"],[0.72,-0.03,"neutral","m"],[0.21,-0.59,"neutral","l"]],"orbit":1,"hazards":[["star",-1,1,0.8]],"tier":20},{"name":"Ruta Caliente","nodes":[[-0.78,-0.24,"player","m"],[-0.29,0.66,"red","m"],[0.43,0.6,"violet","m"],[-0.52,-0.23,"neutral","s"],[-0.48,0.23,"neutral","m"],[0.04,0.65,"neutral","s"],[-0.76,-0.03,"neutral","s"],[-0.25,0.65,"neutral","m"],[-0.21,-0.65,"neutral","l"],[-0.04,0.03,"neutral","s"]],"orbit":1,"hazards":[["star",-1,1,0.88]],"tier":21},{"name":"Corona Partida","nodes":[[-0.52,-0.58,"player","m"],[-0.58,0.43,"red","m"],[0.09,0.73,"violet","m"],[0.52,0.23,"neutral","s"],[0.48,-0.23,"neutral","m"],[-0.04,-0.65,"neutral","s"],[0.76,0.03,"neutral","s"],[0.25,-0.65,"neutral","m"],[0.21,0.65,"neutral","l"],[-0.25,-0.03,"neutral","s"],[0.0,-0.33,"neutral","m"]],"orbit":1,"hazards":[["star",-1,1,0.9600000000000001]],"tier":22},{"name":"Paso Solar","nodes":[[-0.52,0.58,"player","m"],[0.73,-0.1,"red","m"],[0.28,-0.67,"violet","l"],[-0.52,0.23,"neutral","s"],[0.0,0.65,"neutral","m"],[-0.68,-0.03,"neutral","s"],[-0.29,0.65,"neutral","s"],[-0.25,-0.65,"neutral","m"],[0.04,0.03,"neutral","l"],[0.25,-0.03,"neutral","s"],[0.0,0.39,"neutral","m"],[0.52,0.23,"neutral","s"]],"orbit":1,"hazards":[["star",-1,1,1.04],["star",1,-1,0.75]],"tier":23},{"name":"Fuego Exterior","nodes":[[-0.82,0,"player","m"],[0.69,0.27,"red","l"],[0.56,-0.45,"violet","m"],[0.1,0.71,"gold","m"],[0.52,-0.23,"neutral","s"],[0.0,-0.65,"neutral","m"],[0.68,0.03,"neutral","s"],[0.29,-0.65,"neutral","s"],[0.25,0.65,"neutral","m"],[-0.32,-0.03,"neutral","l"],[0.04,-0.33,"neutral","s"],[-0.48,-0.28,"neutral","m"],[-0.52,0.28,"neutral","s"],[0.04,0.59,"neutral","s"]],"orbit":1,"hazards":[["star",-1,1,1.12],["star",1,-1,0.75]],"tier":24}]},{"name":"Pliegue Negro","meta":"Agujeros negros y atajos","twist":"blackhole","levels":[{"name":"Pozo Lejano","nodes":[[-0.78,-0.24,"player","m"],[-0.21,0.75,"red","m"],[0.51,0.53,"violet","m"],[-0.52,-0.28,"neutral","s"],[-0.48,0.28,"neutral","m"],[0.04,0.59,"neutral","s"],[-0.76,0.03,"neutral","s"],[-0.25,0.59,"neutral","m"],[-0.21,-0.59,"neutral","l"]],"orbit":1,"hazards":[["blackhole",1,-1,0.85]],"tier":25},{"name":"Atajo Roto","nodes":[[-0.52,-0.58,"player","m"],[-0.55,0.55,"red","m"],[0.19,0.72,"violet","m"],[0.52,0.23,"neutral","s"],[0.48,-0.23,"neutral","m"],[-0.04,-0.65,"neutral","s"],[0.76,0.03,"neutral","s"],[0.25,-0.65,"neutral","m"],[0.21,0.65,"neutral","l"],[-0.25,-0.03,"neutral","s"]],"orbit":1,"hazards":[["blackhole",1,-1,0.9]],"wormholes":[[-0.48,-0.52,0.48,0.52]],"tier":26},{"name":"Marea Oscura","nodes":[[-0.52,0.58,"player","m"],[0.71,-0.2,"red","m"],[0.19,-0.76,"violet","l"],[-0.52,0.28,"neutral","s"],[0.0,0.59,"neutral","m"],[-0.68,0.03,"neutral","s"],[-0.29,0.59,"neutral","s"],[-0.25,-0.59,"neutral","m"],[0.04,-0.03,"neutral","l"],[0.25,0.03,"neutral","s"],[0.0,0.33,"neutral","m"]],"orbit":1,"hazards":[["blackhole",1,-1,0.95]],"wormholes":[[-0.48,-0.52,0.48,0.52]],"tier":27},{"name":"Puerta Doble","nodes":[[-0.82,0,"player","m"],[0.72,0.17,"red","l"],[0.54,-0.56,"violet","m"],[0.52,-0.28,"neutral","s"],[0.0,-0.59,"neutral","m"],[0.68,-0.03,"neutral","s"],[0.29,-0.59,"neutral","s"],[0.25,0.59,"neutral","m"],[-0.32,0.03,"neutral","l"],[0.04,-0.39,"neutral","s"],[-0.48,-0.23,"neutral","m"],[-0.52,0.23,"neutral","s"]],"orbit":1,"hazards":[["blackhole",1,-1,1.0]],"wormholes":[[-0.48,-0.52,0.48,0.52],[-0.52,0.48,0.52,-0.48]],"tier":28},{"name":"Horizonte Bajo","nodes":[[0,0.74,"player","m"],[-0.57,-0.53,"red","m"],[0.75,-0.23,"violet","m"],[0.16,-0.72,"gold","m"],[-0.04,0.59,"neutral","s"],[-0.72,0.03,"neutral","m"],[-0.21,0.59,"neutral","s"],[-0.29,-0.59,"neutral","l"],[0.0,-0.03,"neutral","m"],[0.32,0.03,"neutral","l"],[-0.04,0.33,"neutral","s"],[0.48,0.28,"neutral","m"],[0.52,-0.28,"neutral","l"],[-0.04,-0.59,"neutral","s"]],"orbit":1,"hazards":[["blackhole",1,-1,1.05]],"wormholes":[[-0.48,-0.52,0.48,0.52],[-0.52,0.48,0.52,-0.48]],"tier":29}]},{"name":"Velo Nebular","meta":"Nebulosas que ralentizan","twist":"nebula","levels":[{"name":"Niebla Azul","nodes":[[-0.52,-0.58,"player","m"],[-0.47,0.62,"red","m"],[0.29,0.68,"violet","m"],[0.77,0.1,"gold","l"],[0.52,0.28,"neutral","s"],[0.48,-0.28,"neutral","m"],[-0.04,-0.59,"neutral","s"],[0.76,-0.03,"neutral","l"],[0.25,-0.59,"neutral","m"],[0.21,0.59,"neutral","l"],[-0.25,0.03,"neutral","s"]],"orbit":1,"nebula":[[0,0,0.32]],"tier":30},{"name":"Corriente Violeta","nodes":[[-0.52,0.58,"player","m"],[0.68,-0.3,"red","m"],[0.09,-0.78,"violet","l"],[0.63,0.46,"gold","m"],[-0.52,0.23,"neutral","s"],[0.0,0.65,"neutral","m"],[-0.68,-0.03,"neutral","s"],[-0.29,0.65,"neutral","l"],[-0.25,-0.65,"neutral","m"],[0.04,0.03,"neutral","l"],[0.25,-0.03,"neutral","s"],[0.0,0.39,"neutral","m"]],"orbit":1,"nebula":[[0,0,0.32]],"tier":31},{"name":"Velo Partido","nodes":[[-0.82,0,"player","m"],[0.74,0.07,"red","l"],[0.45,-0.63,"violet","m"],[0.32,0.71,"gold","m"],[0.52,-0.28,"neutral","s"],[0.0,-0.59,"neutral","m"],[0.68,-0.03,"neutral","s"],[0.29,-0.59,"neutral","l"],[0.25,0.59,"neutral","m"],[-0.32,0.03,"neutral","l"],[0.04,-0.39,"neutral","s"],[-0.48,-0.23,"neutral","m"],[-0.52,0.23,"neutral","l"]],"orbit":1,"nebula":[[-0.25,0.25,0.32],[0.35,-0.28,0.27]],"tier":32},{"name":"Laberinto Suave","nodes":[[0,0.74,"player","m"],[-0.64,-0.45,"red","m"],[0.71,-0.33,"violet","m"],[0.06,-0.74,"gold","m"],[-0.04,0.65,"neutral","s"],[-0.72,-0.03,"neutral","m"],[-0.21,0.65,"neutral","s"],[-0.29,-0.65,"neutral","l"],[0.0,0.03,"neutral","m"],[0.32,-0.03,"neutral","l"],[-0.04,0.39,"neutral","s"],[0.48,0.23,"neutral","m"],[0.52,-0.23,"neutral","l"],[-0.04,-0.65,"neutral","s"]],"orbit":1,"nebula":[[-0.25,0.25,0.34],[0.35,-0.28,0.285]],"tier":33},{"name":"Tormenta Callada","nodes":[[-0.72,0,"player","m"],[-0.34,-0.7,"red","m"],[0.78,0.06,"violet","m"],[-0.44,0.65,"gold","l"],[0.04,-0.65,"neutral","s"],[0.72,0.03,"neutral","m"],[0.21,-0.65,"neutral","s"],[0.29,0.65,"neutral","l"],[-0.28,-0.03,"neutral","m"],[-0.04,-0.33,"neutral","l"],[-0.44,-0.28,"neutral","s"],[-0.48,0.28,"neutral","m"],[-0.04,0.59,"neutral","l"],[-0.68,0.03,"neutral","s"]],"orbit":1,"nebula":[[-0.25,0.25,0.36000000000000004],[0.35,-0.28,0.3]],"tier":34}]},{"name":"Guerra Circular","meta":"Anillos y flancos múltiples","twist":"ring","levels":[{"name":"Anillo Menor","nodes":[[-0.52,0.58,"player","m"],[0.63,-0.39,"red","m"],[-0.02,-0.78,"violet","l"],[0.69,0.37,"gold","m"],[-0.52,0.23,"neutral","s"],[0.0,0.65,"neutral","m"],[-0.68,-0.03,"neutral","s"],[-0.29,0.65,"neutral","l"],[-0.25,-0.65,"neutral","m"],[0.04,0.03,"neutral","l"],[0.25,-0.03,"neutral","s"],[0.0,0.39,"neutral","m"]],"orbit":1,"tier":35},{"name":"Órbita de Sangre","nodes":[[-0.82,0,"player","m"],[0.74,-0.03,"red","l"],[0.36,-0.69,"violet","m"],[0.42,0.66,"gold","m"],[0.52,-0.23,"neutral","s"],[0.0,-0.65,"neutral","m"],[0.68,0.03,"neutral","s"],[0.29,-0.65,"neutral","l"],[0.25,0.65,"neutral","m"],[-0.32,-0.03,"neutral","l"],[0.04,-0.33,"neutral","s"],[-0.48,-0.28,"neutral","m"],[-0.52,0.28,"neutral","l"]],"orbit":1,"wormholes":[[-0.48,-0.52,0.48,0.52]],"tier":36},{"name":"Círculo Tres","nodes":[[0,0.74,"player","m"],[-0.7,-0.35,"red","m"],[0.65,-0.43,"violet","m"],[-0.04,-0.74,"gold","m"],[-0.04,0.59,"neutral","s"],[-0.72,0.03,"neutral","m"],[-0.21,0.59,"neutral","s"],[-0.29,-0.59,"neutral","l"],[0.0,-0.03,"neutral","m"],[0.32,0.03,"neutral","l"],[-0.04,0.33,"neutral","s"],[0.48,0.28,"neutral","m"],[0.52,-0.28,"neutral","l"],[-0.04,-0.59,"neutral","s"]],"orbit":1,"wormholes":[[-0.48,-0.52,0.48,0.52]],"tier":37},{"name":"Núcleo Disputado","nodes":[[-0.72,0,"player","m"],[-0.44,-0.65,"red","m"],[0.78,-0.05,"violet","m"],[-0.34,0.7,"gold","l"],[0.04,-0.65,"neutral","s"],[0.72,0.03,"neutral","m"],[0.21,-0.65,"neutral","s"],[0.29,0.65,"neutral","l"],[-0.28,-0.03,"neutral","m"],[-0.04,-0.33,"neutral","l"],[-0.44,-0.28,"neutral","s"],[-0.48,0.28,"neutral","m"],[-0.04,0.59,"neutral","l"],[-0.68,0.03,"neutral","s"],[-0.25,0.59,"neutral","m"]],"orbit":1,"wormholes":[[-0.48,-0.52,0.48,0.52],[-0.52,0.48,0.52,-0.48]],"tier":38},{"name":"Cerco Amplio","nodes":[[-0.66,0.42,"player","m"],[-0.06,-0.78,"red","m"],[0.71,0.33,"violet","l"],[0.61,-0.42,"gold","m"],[-0.76,0.03,"neutral","s"],[-0.25,0.59,"neutral","m"],[-0.21,-0.59,"neutral","s"],[-0.04,-0.03,"neutral","l"],[0.28,0.03,"neutral","m"],[0.04,0.33,"neutral","l"],[0.44,0.28,"neutral","s"],[0.48,-0.28,"neutral","m"],[0.04,-0.59,"neutral","l"],[0.68,-0.03,"neutral","s"],[0.25,-0.59,"neutral","m"]],"orbit":1,"wormholes":[[-0.48,-0.52,0.48,0.52],[-0.52,0.48,0.52,-0.48]],"tier":39}]},{"name":"Eclipse Exterior","meta":"Mapas densos y peligros mixtos","twist":"eclipse","levels":[{"name":"Sombra Larga","nodes":[[-0.82,0,"player","m"],[0.73,-0.13,"red","l"],[0.26,-0.73,"violet","m"],[0.51,0.59,"gold","m"],[0.52,-0.28,"neutral","s"],[0.0,-0.59,"neutral","m"],[0.68,-0.03,"neutral","s"],[0.29,-0.59,"neutral","l"],[0.25,0.59,"neutral","m"],[-0.32,0.03,"neutral","l"],[0.04,-0.39,"neutral","s"],[-0.48,-0.23,"neutral","m"],[-0.52,0.23,"neutral","l"]],"orbit":1,"hazards":[["star",-1,1,0.8],["blackhole",1,-1,0.85]],"nebula":[[0,0,0.32]],"tier":40},{"name":"Doble Amenaza","nodes":[[0,0.74,"player","m"],[-0.74,-0.25,"red","m"],[0.59,-0.51,"violet","m"],[-0.14,-0.73,"gold","m"],[-0.04,0.59,"neutral","s"],[-0.72,0.03,"neutral","m"],[-0.21,0.59,"neutral","s"],[-0.29,-0.59,"neutral","l"],[0.0,-0.03,"neutral","m"],[0.32,0.03,"neutral","l"],[-0.04,0.33,"neutral","s"],[0.48,0.28,"neutral","m"],[0.52,-0.28,"neutral","l"],[-0.04,-0.59,"neutral","s"]],"orbit":1,"hazards":[["star",-1,1,0.88],["blackhole",1,-1,0.9]],"nebula":[[0,0,0.32]],"tier":41},{"name":"Eclipse Vivo","nodes":[[-0.72,0,"player","m"],[0.49,0.55,"red","m"],[0.76,-0.16,"violet","m"],[-0.24,0.74,"gold","l"],[0.04,-0.59,"neutral","s"],[0.72,-0.03,"neutral","m"],[0.21,-0.59,"neutral","s"],[0.29,0.59,"neutral","l"],[-0.28,0.03,"neutral","m"],[-0.04,-0.39,"neutral","l"],[-0.44,-0.23,"neutral","s"],[-0.48,0.23,"neutral","m"],[-0.04,0.65,"neutral","l"],[-0.68,-0.03,"neutral","s"],[-0.25,0.65,"neutral","m"]],"orbit":1,"hazards":[["star",-1,1,0.9600000000000001],["blackhole",1,-1,0.95]],"nebula":[[-0.25,0.25,0.32],[0.35,-0.28,0.27]],"tier":42},{"name":"Nexo de Guerra","nodes":[[-0.66,0.42,"player","m"],[-0.17,-0.76,"red","m"],[0.74,0.23,"violet","l"],[0.54,-0.5,"gold","m"],[-0.76,-0.03,"neutral","s"],[-0.25,0.65,"neutral","m"],[-0.21,-0.65,"neutral","s"],[-0.04,0.03,"neutral","l"],[0.28,-0.03,"neutral","m"],[0.04,0.39,"neutral","l"],[0.44,0.23,"neutral","s"],[0.48,-0.23,"neutral","m"],[0.04,-0.65,"neutral","l"],[0.68,0.03,"neutral","s"],[0.25,-0.65,"neutral","m"]],"orbit":1,"hazards":[["star",-1,1,1.04],["star",1,-1,0.75],["blackhole",1,-1,1.0]],"nebula":[[-0.25,0.25,0.34],[0.35,-0.28,0.285]],"pulsars":[[0,0],[-0.42,0.42],[0.42,-0.42]],"tier":43},{"name":"Borde del Vacío","nodes":[[-0.66,-0.42,"player","m"],[0.22,-0.75,"red","l"],[0.54,0.57,"violet","m"],[0.72,-0.17,"gold","m"],[0.76,-0.03,"neutral","s"],[0.25,-0.59,"neutral","m"],[0.21,0.59,"neutral","s"],[-0.25,0.03,"neutral","l"],[0.0,-0.39,"neutral","m"],[-0.52,-0.23,"neutral","l"],[-0.44,0.23,"neutral","s"],[0.0,0.65,"neutral","m"],[-0.76,-0.03,"neutral","l"],[-0.21,0.65,"neutral","s"],[-0.25,-0.65,"neutral","m"]],"orbit":1,"hazards":[["star",-1,1,1.12],["star",1,-1,0.75],["blackhole",1,-1,1.05]],"nebula":[[-0.25,0.25,0.36000000000000004],[0.35,-0.28,0.3]],"pulsars":[[0,0],[-0.42,0.42],[0.42,-0.42]],"tier":44}]},{"name":"Singularidad","meta":"Final de campaña","twist":"singularity","levels":[{"name":"Última Puerta","nodes":[[0,0.74,"player","m"],[-0.77,-0.15,"red","m"],[0.51,-0.59,"violet","m"],[-0.24,-0.7,"gold","m"],[-0.04,0.65,"neutral","s"],[-0.72,-0.03,"neutral","m"],[-0.21,0.65,"neutral","s"],[-0.29,-0.65,"neutral","l"],[0.0,0.03,"neutral","m"],[0.32,-0.03,"neutral","l"],[-0.04,0.39,"neutral","s"],[0.48,0.23,"neutral","m"],[0.52,-0.23,"neutral","l"]],"orbit":1,"hazards":[["blackhole",1,-1,0.85]],"pulsars":[[0,0]],"tier":45},{"name":"Tres Horizontes","nodes":[[-0.72,0,"player","m"],[0.57,0.48,"red","m"],[0.73,-0.27,"violet","m"],[-0.14,0.77,"gold","l"],[0.04,-0.65,"neutral","s"],[0.72,0.03,"neutral","m"],[0.21,-0.65,"neutral","s"],[0.29,0.65,"neutral","l"],[-0.28,-0.03,"neutral","m"],[-0.04,-0.33,"neutral","l"],[-0.44,-0.28,"neutral","s"],[-0.48,0.28,"neutral","m"],[-0.04,0.59,"neutral","l"],[-0.68,0.03,"neutral","s"]],"orbit":1,"hazards":[["blackhole",1,-1,0.9]],"wormholes":[[-0.48,-0.52,0.48,0.52]],"pulsars":[[0,0]],"tier":46},{"name":"Corona Negra","nodes":[[-0.66,0.42,"player","m"],[-0.28,-0.73,"red","m"],[0.77,0.13,"violet","l"],[0.47,-0.57,"gold","m"],[-0.76,-0.03,"neutral","s"],[-0.25,0.65,"neutral","m"],[-0.21,-0.65,"neutral","s"],[-0.04,0.03,"neutral","l"],[0.28,-0.03,"neutral","m"],[0.04,0.39,"neutral","l"],[0.44,0.23,"neutral","s"],[0.48,-0.23,"neutral","m"],[0.04,-0.65,"neutral","l"],[0.68,0.03,"neutral","s"],[0.25,-0.65,"neutral","m"]],"orbit":1,"hazards":[["blackhole",1,-1,0.95],["star",-1,1,1.0]],"wormholes":[[-0.48,-0.52,0.48,0.52]],"pulsars":[[0,0]],"tier":47},{"name":"Colapso Azul","nodes":[[-0.66,-0.42,"player","m"],[0.11,-0.77,"red","l"],[0.61,0.49,"violet","m"],[-0.73,0.29,"gold","m"],[0.76,0.03,"neutral","s"],[0.25,-0.65,"neutral","m"],[0.21,0.65,"neutral","s"],[-0.25,-0.03,"neutral","l"],[0.0,-0.33,"neutral","m"],[-0.52,-0.28,"neutral","l"],[-0.44,0.28,"neutral","s"],[0.0,0.59,"neutral","m"],[-0.76,0.03,"neutral","l"],[-0.21,0.59,"neutral","s"],[-0.25,-0.59,"neutral","m"]],"orbit":1,"hazards":[["blackhole",1,-1,1.0],["star",-1,1,1.0]],"wormholes":[[-0.48,-0.52,0.48,0.52],[-0.52,0.48,0.52,-0.48]],"pulsars":[[0,0],[-0.42,0.42],[0.42,-0.42]],"tier":48},{"name":"Afterlight","nodes":[[0,-0.74,"player","m"],[-0.45,0.59,"red","m"],[0.3,0.72,"violet","m"],[-0.77,-0.1,"gold","m"],[-0.29,0.59,"neutral","s"],[-0.25,-0.59,"neutral","m"],[0.04,-0.03,"neutral","s"],[0.25,0.03,"neutral","l"],[0.0,0.33,"neutral","m"],[0.52,0.28,"neutral","l"],[0.44,-0.28,"neutral","s"],[0.0,-0.59,"neutral","m"],[0.76,-0.03,"neutral","l"],[0.21,-0.59,"neutral","s"],[0.25,0.59,"neutral","m"]],"orbit":1,"hazards":[["blackhole",1,-1,1.05],["star",-1,1,1.0]],"wormholes":[[-0.48,-0.52,0.48,0.52],[-0.52,0.48,0.52,-0.48]],"pulsars":[[0,0],[-0.42,0.42],[0.42,-0.42]],"tier":49}]}];
+
+/* ---------- custom maps / editor ---------- */
+const CUSTOM_MAPS_KEY='orbitals.afterlight.v2.customMaps';
+let customMaps=[], selectedCustomIndex=0;
+const CUSTOM_CONST={name:'Mapas personalizados',meta:'Creados en el editor',twist:'custom',custom:true,levels:[]};
+CONSTS.push(CUSTOM_CONST);
+function customConstIndex(){return CONSTS.length-1}
+function ownerName(o){return o==='player'?'Azul':o==='red'?'Rojo':o==='violet'?'Violeta':o==='gold'?'Dorado':'Gris'}
+function sizeCodeFromLevel(v){return Number(v)>=3?'l':Number(v)>=2?'m':'s'}
+function levelFromSizeCode(s){return s==='l'?3:s==='m'?2:1}
+function sanitizeCustomMap(m,idx=0){
+  const nodesIn=Array.isArray(m&&m.nodes)?m.nodes:[];
+  const defaultMotion=(m&&m.orbit)?'orbit':'static';
+  const nodesOut=nodesIn.map(n=>{
+    const nx=clamp(Number(n[0])||0,-1.75,1.75), ny=clamp(Number(n[1])||0,-1.22,1.22);
+    const owner=['player','red','violet','gold','neutral'].includes(n[2])?n[2]:'neutral';
+    const size=['s','m','l'].includes(n[3])?n[3]:'s';
+    const mv=(n[4]===true||n[4]===1||n[4]==='orbit')?'orbit':(n[4]==='static'||n[4]===0||n[4]===false?'static':defaultMotion);
+    return [nx,ny,owner,size,mv];
+  });
+  return {name:String((m&&m.name)||('Mapa personalizado '+(idx+1))).slice(0,40),nodes:nodesOut,orbit:0,custom:true,tier:1000+idx};
+}
+function loadCustomMaps(){try{customMaps=(JSON.parse(localStorage.getItem(CUSTOM_MAPS_KEY))||[]).map(sanitizeCustomMap)}catch(_){customMaps=[]}syncCustomConst()}
+function saveCustomMaps(){try{localStorage.setItem(CUSTOM_MAPS_KEY,JSON.stringify(customMaps))}catch(_){}syncCustomConst()}
+function syncCustomConst(){CUSTOM_CONST.levels=customMaps.map((m,i)=>sanitizeCustomMap(m,i));}
+function isCustomConst(c){return CONSTS[c]&&CONSTS[c].custom}
+
+/* ---------- progress (localStorage) ---------- */
+const PROG_KEY='orbitals.afterlight.v2.progress';
+let progress={};
+function loadProgress(){try{progress=JSON.parse(localStorage.getItem(PROG_KEY))||{}}catch(_){progress={}}}
+function saveProgress(){try{localStorage.setItem(PROG_KEY,JSON.stringify(progress))}catch(_){}}
+function levelKey(c,l){return c+':'+l}
+function isUnlocked(c,l){ if(isCustomConst(c))return true; if(l===0)return true; if(c>0&&l===0)return constCleared(c-1); return !!progress[levelKey(c,l-1)] }
+function constUnlocked(c){ return isCustomConst(c)?customMaps.length>0:(c===0 || constCleared(c-1)) }
+function constCleared(c){ return CONSTS[c].levels.every((_,l)=>!!progress[levelKey(c,l)]) }
+function recordWin(c,l,stars){ if(isCustomConst(c))return; const k=levelKey(c,l); const prev=progress[k]||0; if(stars>prev)progress[k]=stars; saveProgress() }
+
+/* ============================================================
+   WORLD BUILD
+   ============================================================ */
+let constIndex=0, levelIndex=0, diffIndex=1;
+const SPREAD=1.34;  // push planets apart; camera auto-fits the whole field
+function norm(nx,ny){const s=Math.min(W,H)*0.5*SPREAD; return {x:W/2+nx*s, y:H/2+ny*s}}
+function startLevelForSize(size){return size==='l'?3:(size==='m'?2:1)}
+function hpForLevel(level){return clamp(Math.round(level),1,3)*10}
+function productionRateFor(level){return level>=3?1:(level>=2?.5:1/3)} // size 1: 3s, size 2: 2s, size 3: 1s
+function radiusFor(size,level){
+  const sc=clamp(Math.min(W,H)/620,.78,1.12);
+  const tier=clamp(Math.round(level||1),1,3);
+  const radii=[0,13,25,42];
+  const typeBonus=size==='l'?2:(size==='m'?1:0);
+  return (radii[tier]+typeBonus)*sc;
+}
+function upgradeCost(level){return level>=3?Infinity:(level===1?20:30)}
+function maxLevelFor(size,owner,i,kind){
+  if(Number(SETTINGS.maxLevelLimits)<=0)return 3;
+  if(owner==='player'&&i===0)return 3;
+  if(size==='l')return 3;
+  if(size==='m')return ((i%3)===0 || kind==='ocean' || kind==='gas')?3:2;
+  return (i%4===0 || kind==='ring')?2:1;
+}
+function hazardPoint(xSign,ySign){return{x:W/2+xSign*W*.43,y:H/2+ySign*H*.36}}
+function addMapHazards(lvl){
+  hazards=[];
+  const add=(type,xs,ys,power=1)=>{const p=hazardPoint(xs,ys);hazards.push({type,x:p.x,y:p.y,r:(type==='blackhole'?24:30)*power,pullR:(type==='blackhole'?170:0)*power,killR:(type==='blackhole'?28:42)*power,heatR:(type==='star'?130:0)*power,phase:rnd(0,TAU),power});};
+  if(lvl.hazards){lvl.hazards.forEach(h=>add(h[0],h[1],h[2],h[3]||1));return;}
+  if(constIndex===2 && levelIndex>=1)add('star',-1,1,1.0);
+  if(constIndex===3 && levelIndex>=1)add(levelIndex%2?'blackhole':'star',1,-1,1.0);
+  if(constIndex===4 && levelIndex>=2)add('star',-1,-1,.9);
+  if(constIndex===5)add('blackhole',1,levelIndex%2?1:-1,1.05);
+}
+
+function buildLevel(){
+  const lvl=CONSTS[constIndex].levels[levelIndex];
+  diffIndex=mapDifficultyIndex(constIndex,levelIndex,lvl);
+  const diff=DIFF[diffIndex], twist=CONSTS[constIndex].twist;
+  nodes=[];particles=[];explosions=[];wormholes=[];nebulae=[];pulsars=[];hazards=[];
+  selectedSources.clear(); selectedUnits=[]; elapsed=0;gameOver=false;battleHeat=0;previewPoint=null;balance={attacks:0,lastWave:0,totalWave:0,started:performance.now(),show:balance.show};camera.x=0;camera.y=0;
+  gameSpeedStep=0; const sb=$('speedBtn'); if(sb)sb.textContent='1×';
+  makeBackground();
+  lvl.nodes.forEach((n,i)=>{
+    const [nx,ny,owner,size]=n, p=norm(nx,ny), def=SIZES[size];
+    const nodeMotionFlag=n[4];
+    const customMap=isCustomConst(constIndex);
+    const kind=['terra','gas','ice','ember','ring','ocean'][i%6];
+    const hostile=isHostile(owner), startLevel=startLevelForSize(size);
+    const maxLevel=Math.max(startLevel,maxLevelFor(size,owner,i,kind));
+    const maxHp=hpForLevel(startLevel);
+    let count=0;
+    if(owner!=='neutral'){
+      count=FACTION_START;
+      if(hostile)count=Math.round(FACTION_START*Number(SETTINGS.enemyMul||1)+(diff.enemyBonus||0));
+    }
+    const shouldOrbit=customMap ? (nodeMotionFlag==='orbit'||nodeMotionFlag===1||nodeMotionFlag===true) : true;
+    const orbitFactor=(lvl.orbit||customMap)?1.9:1.0, scale=clamp(Math.min(W,H)/620,.75,1.25);
+    const motion=shouldOrbit?{anchorX:p.x,anchorY:p.y,rx:rnd(10,28)*scale*orbitFactor,ry:rnd(6,19)*scale*orbitFactor,ang:rnd(0,TAU),spd:rnd(.014,.038)*(i%2?-1:1)*(lvl.orbit?1.55:1)}:null;
+    nodes.push({
+      id:i,nx,ny,bx:p.x,by:p.y,x:p.x,y:p.y,owner,size,kind,level:startLevel,maxLevel,count,upgrade:0,
+      hp:maxHp,maxHp,claim:null,hitT:0,shields:[],
+      r:radiusFor(size,startLevel),prod:(hostile?(diff.enemyProd||1):1),emitT:0,route:null,defT:0,
+      seed:rnd(0,1e4),motion,
+      aiT:hostile?rnd(.25,1.15):rnd(1.3,3.2),
+      aiType:aiBrainFor(owner,i,constIndex,levelIndex,size)
+    });
+  });
+  // wormholes
+  (lvl.wormholes||[]).forEach((w,i)=>{const a=norm(w[0],w[1]),b=norm(w[2],w[3]);
+    wormholes.push({id:'wA'+i,x:a.x,y:a.y,r:18,link:'wB'+i,cool:0});
+    wormholes.push({id:'wB'+i,x:b.x,y:b.y,r:18,link:'wA'+i,cool:0});});
+  // nebulae
+  (lvl.nebula||[]).forEach(nb=>{const p=norm(nb[0],nb[1]);nebulae.push({x:p.x,y:p.y,r:Math.min(W,H)*0.5*nb[2]})});
+  // pulsars
+  (lvl.pulsars||[]).forEach(ps=>{const p=norm(ps[0],ps[1]);pulsars.push({x:p.x,y:p.y,r:18,charge:rnd(2,5),wave:0,maxR:Math.min(W,H)*0.22})});
+  addMapHazards(lvl);
+  title.innerHTML=lvl.name+'<small>'+CONSTS[constIndex].name+'</small>';
+  help.textContent=T('helpStart');
+  separateNodes();
+  updateNodePositions(true);
+  fitCameraToLevel();
+}
+function separateNodes(){
+  if(nodes.length<2)return;
+  const minGap=clamp(Math.min(W,H)*0.055,24,60);
+  for(let it=0;it<18;it++){ let moved=false;
+    for(let i=0;i<nodes.length;i++)for(let j=i+1;j<nodes.length;j++){
+      const a=nodes[i],b=nodes[j]; let dx=b.bx-a.bx,dy=b.by-a.by,d=Math.hypot(dx,dy)||.01;
+      const need=a.r+b.r+minGap;
+      if(d<need){ const push=(need-d)/2, nx=dx/d, ny=dy/d;
+        a.bx-=nx*push;a.by-=ny*push;b.bx+=nx*push;b.by+=ny*push;moved=true; }
+    }
+    if(!moved)break;
+  }
+  for(const p of nodes){ if(p.motion){p.motion.anchorX=p.bx;p.motion.anchorY=p.by;} }
+}
+function fitCameraToLevel(){
+  if(!nodes.length)return;
+  let minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
+  for(const p of nodes){ const ex=p.r+ (p.orbit?p.orbit.rad*0:0);
+    minX=Math.min(minX,p.bx-p.r);maxX=Math.max(maxX,p.bx+p.r);minY=Math.min(minY,p.by-p.r);maxY=Math.max(maxY,p.by+p.r); }
+  const padX=70, padTop=120, padBot=92;
+  const bw=(maxX-minX)+padX*2, bh=(maxY-minY)+padTop+padBot;
+  const z=clamp(Math.min(W/bw,H/bh), camera.min, 1.25);
+  camera.zoom=z; camera.x=0; camera.y=0; camera.vx=0; camera.vy=0; clampCamera();
+  const b=$('zoomBadge'); if(b)b.textContent=Math.round(camera.zoom*100)+'%';
+}
+function updateNodePositions(force){
+  const t=elapsed;
+  for(const p of nodes){
+    p.r=radiusFor(p.size,p.level);
+    p.maxHp=hpForLevel(p.level);
+    const m=p.motion;
+    if(m){
+      p.bx=m.anchorX+Math.cos(t*m.spd+m.ang)*m.rx;
+      p.by=m.anchorY+Math.sin(t*m.spd+m.ang*1.37)*m.ry;
+    }
+    p.shields=(p.shields||[]).filter(s=>s.t>0);
+    for(const s of p.shields){s.t-=1/60;s.age=(s.age||0)+1/60;}
+    const wob=Math.sin(t*.25+p.seed)*1.3;
+    p.x=p.bx+Math.cos(t*.18+p.seed)*1.0; p.y=p.by+wob;
+  }
+}
+
+/* ============================================================
+   SIMULATION
+   ============================================================ */
+function tutorialPulse(){
+  if(constIndex===0&&levelIndex===0){
+    const en=Number(SETTINGS.language)>=1;
+    help.textContent=en?'Tutorial: tap your blue planet, then tap the gray planet. No numbers: read strength from the orbiting ships.':'Tutorial: toca tu planeta azul y luego el planeta gris. Sin números: lee la fuerza por las naves orbitando.';
+  }
+}
+function startGame(){
+  try{ initAudio(); setMusicScene('game'); tryLockLandscape(); menu.classList.add('hidden'); $('endCard').classList.remove('show');
+    running=true;paused=false;gameOver=false; camera.x=0;camera.y=0; buildLevel(); tutorialPulse();
+  }catch(e){showError(e)}
+}
+function showError(e){debug.style.display='block';debug.textContent='Error: '+(e&&e.stack?e.stack:e);running=false;menu.classList.remove('hidden')}
+
+function update(dt){
+  if(!running||paused||gameOver)return;
+  dt*=Number(SETTINGS.gameSpeed||1)*SPEED_STEPS[gameSpeedStep]*0.8;
+  PERF.frame++; elapsed+=dt;
+  // camera inertia
+  if(!camera.pinch&&(Math.abs(camera.vx)>.01||Math.abs(camera.vy)>.01)){
+    const k=Math.pow(.1,dt/Math.max(.15,Number(SETTINGS.cameraInertia||1)));
+    camera.x+=camera.vx*dt;camera.y+=camera.vy*dt;camera.vx*=k;camera.vy*=k;
+  }
+  updateNodePositions(); clampCamera();
+  // production: planet size drives generation speed. Size 1 = 1 unit / 3s, size 2 = 1 unit / 2s, size 3 = 1 unit / 1s.
+  for(const p of nodes){
+    p.hitT=Math.max(0,(p.hitT||0)-dt);
+    if(produces(p)){
+      p.count += productionRateFor(p.level)*p.prod*Number(SETTINGS.productionMul)*dt;
+    }
+  }
+  // (units no longer flow continuously: they move only when commanded — see commandSelection/launchFleet)
+  autoDefense(dt);
+  updateParticles(dt);
+  if(PERF.frame%PERF.collideEvery===0)particleCombat();
+  if(PERF.frame%(PERF.mobile?5:3)===0)orbitingGarrisonCombat();
+  updatePulsars(dt);
+  updateHazards(dt);
+  updateExplosions(dt);
+  ai(dt);
+  updateBattleHeat(dt);
+  checkWin();
+  if(PERF.frame%8===0)updateStats();
+}
+function produces(p){return p.owner!=='neutral'}
+
+/* ---- fleet dispatch ---- */
+function spawnUnit(src,targetNode,dest){
+  const aimX=targetNode?targetNode.x:dest.x, aimY=targetNode?targetNode.y:dest.y;
+  const a=Math.atan2(aimY-src.y,aimX-src.x)+rnd(-.45,.45), rr=src.r+4+rnd(0,7);
+  const mx=(33+rnd(-4,8))*Number(SETTINGS.particleSpeed); // slow, organic cruise speed
+  particles.push({owner:src.owner,x:src.x+Math.cos(a)*rr,y:src.y+Math.sin(a)*rr,px:src.x,py:src.y,
+    vx:Math.cos(a)*mx*.35, vy:Math.sin(a)*mx*.35, maxSpeed:mx, nz:rnd(0,1e3),
+    state:'move',target:targetNode?targetNode.id:null,dest:dest?{x:dest.x,y:dest.y}:null,
+    commandLock:!!targetNode,arrivalGrace:1.4,age:0,seed:rnd(0,1e4),wig:rnd(0,TAU),selected:false,wcool:0});
+}
+function launchFleet(src,targetNode,dest,amount=null,reserve=0){
+  if(!src||src.owner==='neutral')return 0;
+  const frac=clamp(Number(SETTINGS.sendFraction||1),.1,1);
+  let send=amount==null?Math.floor(src.count*frac):Math.floor(amount);
+  send=Math.min(send,Math.max(0,Math.floor(src.count-reserve)));
+  const budget=PERF.maxParticles-particles.length;
+  send=Math.min(send,budget); if(send<=0)return 0;
+  src.count-=send;
+  for(let k=0;k<send;k++)spawnUnit(src,targetNode,dest);
+  return send;
+}
+/* ---- strict orbital auto-defense: ships never leave or deform orbit; interception happens only on physical crossing ---- */
+
+function segPointDistSq(ax,ay,bx,by,px,py){
+  const vx=bx-ax, vy=by-ay, wx=px-ax, wy=py-ay;
+  const l2=vx*vx+vy*vy;
+  const q=l2>0?clamp((wx*vx+wy*vy)/l2,0,1):0;
+  const cx=ax+vx*q, cy=ay+vy*q;
+  const dx=px-cx, dy=py-cy;
+  return dx*dx+dy*dy;
+}
+function orbitingDefenderHit(P,e){
+  const defenders=Math.floor(P.count||0);
+  if(defenders<=0)return null;
+  // Only physical orbiting ships can intercept: no random early detonation.
+  const drawN=Math.min(defenders,PERF.maxOrbit);
+  const hitR=4.6;
+  const hitR2=hitR*hitR;
+  const maxD=P.r+28+P.level*6;
+  const dNow=Math.hypot(e.x-P.x,e.y-P.y);
+  const dPrev=Math.hypot((e.px??e.x)-P.x,(e.py??e.y)-P.y);
+  if(Math.min(dNow,dPrev)>maxD+12)return null;
+  // Check a subset on mobile/large garrisons for performance, but keep it deterministic-looking.
+  const stride=drawN>90?2:1;
+  for(let k=0;k<drawN;k+=stride){
+    const s=orbitPos(P,k,drawN);
+    const d2=segPointDistSq(e.px??e.x,e.py??e.y,e.x,e.y,s.x,s.y);
+    if(d2<=hitR2)return s;
+  }
+  return null;
+}
+
+function addShieldFocus(P,angle,power=1){
+  P.shields=P.shields||[];
+  let best=null,bd=9;
+  for(const s of P.shields){const d=Math.abs(angDelta(s.a,angle));if(d<bd){bd=d;best=s}}
+  if(best&&bd<.55){
+    best.a=angLerp(best.a,angle,.22);
+    best.power=Math.max(best.power||1,power);
+    best.t=Math.max(best.t,.95+power*.30);
+    best.life=Math.max(best.life||1.2,best.t);
+  }else{
+    P.shields.push({a:angle,t:1.05+power*.32,life:1.05+power*.32,age:0,power,seed:rnd(0,1e4)});
+    if(P.shields.length>4)P.shields.shift();
+  }
+}
+function shieldInterceptChance(P,e,d,ang){
+  const defenders=Math.floor(P.count||0);
+  if(defenders<=0)return 0;
+  let focus=0;
+  for(const s of (P.shields||[])){
+    const close=1-clamp(Math.abs(angDelta(s.a,ang))/1.25,0,1);
+    const alive=clamp((s.t||0)/Math.max(.2,s.life||1),0,1);
+    focus=Math.max(focus,close*alive*(s.power||1));
+  }
+  const density=clamp(defenders/(10+P.level*7+(P.size==='l'?8:0)),0,1);
+  const closeK=clamp((P.r+27-d)/30,0,1);
+  const veteran=clamp((P.level-1)*.08,0,.18);
+  return clamp((.05+density*.34+focus*.32+veteran)*closeK,0,.78);
+}
+function autoDefense(dt){
+  // Defender ships do not jump or explode attackers by probability.
+  // They keep orbiting; shield focus only bends their orbit toward incoming fire.
+  // A kill only happens if the incoming ship physically crosses an orbiting defender.
+  for(let pi=particles.length-1;pi>=0;pi--){
+    const e=particles[pi]; if(!e||e.def)continue;
+    for(const P of nodes){
+      if(P.owner==='neutral'||P.owner===e.owner||P.count<1)continue;
+      const d=Math.hypot(e.x-P.x,e.y-P.y), targeted=(e.target===P.id);
+      const sense=targeted?P.r+125:P.r+58;
+      if(d>sense)continue;
+      const hit=orbitingDefenderHit(P,e);
+      if(hit){
+        P.count=Math.max(0,P.count-1);
+        burst(hit.x,hit.y,'#ffffff',7,.28);
+        burst(hit.x,hit.y,ownerColor(P.owner),5,.22);
+        if(Math.random()<.22)sfx('hit');
+        e.removed=true;particles.splice(pi,1);
+      }
+      break;
+    }
+  }
+}
+
+function updateParticles(dt){
+  for(let i=particles.length-1;i>=0;i--){
+    const u=particles[i]; u.age+=dt; u.px=u.x; u.py=u.y; u.wig+=dt*6;
+    // interceptor logic: chase the assigned attacker, or return to its planet when the threat is gone
+    if(u.def){
+      u.state='move';
+      const th=u.threat;
+      if(th && !th.removed && th.owner!==u.owner){ u.target=null; u.dest={x:th.x+(th.vx||0)*.3, y:th.y+(th.vy||0)*.3}; }
+      else { const hp=nodes.find(n=>n.id===u.home);
+        if(hp&&hp.owner===u.owner){ u.target=u.home; u.dest=null; } else { u.target=null; if(!u.dest)u.dest={x:u.x,y:u.y}; } }
+    }
+    // resolve aim
+    let t=null;
+    if(u.target!=null){ t=nodes.find(n=>n.id===u.target);
+      if(!t){ u.state='hold'; u.target=null; u.dest={x:u.x,y:u.y}; } }
+    if(u.state==='hold'){ // idle: settle onto the hold point, then breathe gently in place
+      if(u.dest){ const ddx=u.dest.x-u.x, ddy=u.dest.y-u.y, dd=Math.hypot(ddx,ddy);
+        if(dd>1.5){ u.x+=ddx*Math.min(1,dt*1.8); u.y+=ddy*Math.min(1,dt*1.8); }
+        else { u.x=u.dest.x+Math.cos(u.wig*.25+u.seed)*2.4; u.y=u.dest.y+Math.sin(u.wig*.25+u.seed)*2.4; } }
+      continue;
+    }
+    const aimX=t?t.x:u.dest.x, aimY=t?t.y:u.dest.y;
+    // nebula slow
+    let nebK=1; for(const nb of nebulae){ if(Math.hypot(u.x-nb.x,u.y-nb.y)<nb.r){nebK=.5;break} }
+    // desired direction + steering around friendly (non-target) planets
+    let dx=aimX-u.x, dy=aimY-u.y, dd=Math.hypot(dx,dy)||1, ax=dx/dd, ay=dy/dd;
+    for(const p2 of nodes){
+      if(p2.owner!==u.owner)continue;
+      if(t&&p2.id===u.target)continue;
+      const rx=u.x-p2.x, ry=u.y-p2.y, rd=Math.hypot(rx,ry)||1, safe=p2.r+14;
+      if(rd<safe+18){ const push=(safe+18-rd)/(safe+18);
+        ax+=(rx/rd)*push*1.7; ay+=(ry/rd)*push*1.7;
+        const s=(Math.sin(u.seed)>0?1:-1);
+        ax+=(-ry/rd)*push*1.05*s; ay+=(rx/rd)*push*1.05*s; }
+    }
+    // gentle organic meander, but it fades to nothing as we close on the aim
+    const near=clamp(dd/110,0,1);              // 0 = right on top of target, 1 = far
+    const meander=(Math.sin(elapsed*.5+u.nz)+Math.sin(elapsed*.23+u.nz*1.7)*.5)*(u.commandLock?0.045:0.16)*near;
+    const cm=Math.cos(meander), sm=Math.sin(meander);
+    let dxr=ax*cm-ay*sm, dyr=ax*sm+ay*cm; const dl=Math.hypot(dxr,dyr)||1; dxr/=dl; dyr/=dl;
+    // commit straight at a planet target once close, so momentum can't make us orbit it
+    let tau=lerp(.16,.5,near);                  // snappier steering near the aim
+    if(t && dd<t.r+100){ dxr=dx/dd; dyr=dy/dd; tau=u.commandLock?.035:.065; }
+    else if(!t && dd<28){ dxr=dx/dd; dyr=dy/dd; tau=.10; }  // settle straight onto a point
+    if(u.def)tau=Math.min(tau,.16);             // interceptors turn tighter to meet attackers
+    // cruise speed (slow); ease down to a stop on an empty destination so units don't circle it
+    let tSpeed=u.maxSpeed*nebK;
+    if(t){ if(dd<46)tSpeed*=clamp(dd/46,u.commandLock?.82:.62,1); if(u.commandLock&&dd<t.r+95)tSpeed=Math.max(tSpeed,28*Number(SETTINGS.particleSpeed)); }
+    else if(!u.def){ if(dd<28)tSpeed*=clamp(dd/28,0,1); else if(dd<70)tSpeed*=clamp(dd/70,.5,1); }
+    // steer current velocity toward desired velocity (momentum)
+    const turn=1-Math.exp(-dt/tau);
+    u.vx+=(dxr*tSpeed-u.vx)*turn; u.vy+=(dyr*tSpeed-u.vy)*turn;
+    if(!t && !u.def && dd<28){ u.vx*=.82; u.vy*=.82; }      // brake to kill orbiting momentum
+    u.x+=u.vx*dt; u.y+=u.vy*dt;
+    // keep out of friendly non-target planets (hard)
+    for(const p2 of nodes){
+      if(p2.owner!==u.owner)continue; if(t&&p2.id===u.target)continue;
+      const rx=u.x-p2.x, ry=u.y-p2.y, rd=Math.hypot(rx,ry); const safe=p2.r+5;
+      if(rd<safe&&rd>0){ u.x=p2.x+rx/rd*safe; u.y=p2.y+ry/rd*safe; }
+    }
+    // wormhole teleport
+    if(u.wcool>0)u.wcool-=dt;
+    if(u.wcool<=0){ for(const w of wormholes){ if(Math.hypot(u.x-w.x,u.y-w.y)<w.r){
+      const link=wormholes.find(x=>x.id===w.link); if(link){u.x=link.x+Math.cos(u.wig)*6;u.y=link.y+Math.sin(u.wig)*6;u.wcool=.6;burst(w.x,w.y,ownerColor(u.owner),8,.3);} break } } }
+    // crossing a non-target planet of another colour -> attack it (consumes the unit)
+    let consumed=false;
+    for(const p2 of nodes){
+      if(p2.owner===u.owner)continue;
+      if(t&&p2.id===u.target)continue;
+      if(Math.hypot(u.x-p2.x,u.y-p2.y)<=p2.r+1.5){ hitPlanet(p2,u); u.removed=true; particles.splice(i,1); consumed=true; break; }
+    }
+    if(consumed)continue;
+    // arrival at explicit target planet: impact only when the ship actually touches
+    // the planet disk, or its travelled segment crosses that disk. No early detonation.
+    if(t){
+      const ar=t.r+2.0;
+      const nx=t.x, ny=t.y;
+      const curD=Math.hypot(u.x-nx,u.y-ny);
+      const crossed=segPointDistSq(u.px,u.py,u.x,u.y,nx,ny)<=ar*ar;
+      if(curD<=ar || crossed){
+        applyArrival(u,t); u.removed=true; particles.splice(i,1); continue;
+      }
+    }
+    // arrival at empty destination -> stop and hold
+    if(!t&&u.dest&&Math.hypot(u.x-u.dest.x,u.y-u.dest.y)<8){ u.state='hold'; }
+  }
+}
+function hitPlanet(t,u){
+  burst(u.x,u.y,'#ffffff',7,.32); if(Math.random()<.2)sfx('hit');
+  t.hitT=0.8;
+  const en=Number(SETTINGS.language)>=1;
+  if(t.owner==='neutral'){
+    // gray planet: one colour at a time makes progress; a different colour cancels it
+    if(!t.claim || t.claim===u.owner){
+      t.claim=u.owner; t.hp-=1;
+      if(t.hp<=0){ // captured -> attacker's colour, life resets to 10
+        t.owner=u.owner; t.maxHp=hpForLevel(t.level); t.hp=t.maxHp; t.claim=null; t.count=0; t.upgrade=0; t.r=radiusFor(t.size,t.level);
+        burst(t.x,t.y,ownerColor(u.owner),24,.7); sfx('capture');
+        if(u.owner==='player')help.textContent=en?'Captured. It produces for you now.':'Capturado. Ya produce para ti.';
+      }
+    } else { // contested by another colour -> the two attacks annul each other
+      t.hp=Math.min(t.maxHp,t.hp+1); if(t.hp>=t.maxHp)t.claim=null;
+    }
+  } else {
+    // colour planet: drain its life; at 0 it turns gray (neutral), not yet the attacker's
+    t.hp-=1;
+    if(t.hp<=0){
+      t.owner='neutral'; t.maxHp=hpForLevel(t.level); t.hp=t.maxHp; t.claim=null; t.count=0; t.upgrade=0; t.r=radiusFor(t.size,t.level);
+      burst(t.x,t.y,'#9fb0c8',22,.62); sfx('capture');
+      if(u.owner==='player')help.textContent=en?'Knocked to neutral — spend 10 more to claim it.':'Pasó a gris: gasta otros 10 para hacerlo tuyo.';
+    }
+  }
+}
+function applyArrival(u,t){
+  if(t.owner===u.owner){
+    // Friendly impact priority:
+    // 1) repair lost hit points; 2) spend units into growth; 3) if maxed, join organic orbit.
+    t.maxHp=hpForLevel(t.level);
+    if(t.hp<t.maxHp){
+      t.hp=Math.min(t.maxHp,t.hp+1);
+      burst(u.x,u.y,ownerColor(u.owner),4,.2);
+    } else if(Number(SETTINGS.autoUpgrade)>0 && t.level<(t.maxLevel||3)){
+      t.upgrade=(t.upgrade||0)+1;
+      burst(u.x,u.y,ownerColor(u.owner),3,.18);
+      const cost=upgradeCost(t.level);
+      if(t.upgrade>=cost){
+        t.upgrade-=cost;
+        t.level++;
+        t.maxHp=hpForLevel(t.level);
+        t.hp=t.maxHp;
+        t.r=radiusFor(t.size,t.level);
+        burst(t.x,t.y,ownerColor(t.owner),24,.62);
+        sfx('upgrade');
+      }
+    } else {
+      if(t.count<0)t.count=0;
+      t.count+=1;
+      burst(u.x,u.y,ownerColor(u.owner),4,.2);
+    }
+  } else { hitPlanet(t,u); }
+}
+function particleCombat(){
+  // reliable opposite-colour collisions via a uniform spatial grid
+  const n=particles.length; if(n<2)return;
+  const R=6, R2=R*R, cell=12, grid=new Map();
+  for(let i=0;i<n;i++){const u=particles[i];const cx=Math.floor(u.x/cell),cy=Math.floor(u.y/cell);const k=cx+','+cy;let a=grid.get(k);if(!a){a=[];grid.set(k,a)}a.push(i)}
+  const dead=new Uint8Array(n);
+  for(let i=0;i<n;i++){
+    if(dead[i])continue; const u=particles[i]; const cx=Math.floor(u.x/cell),cy=Math.floor(u.y/cell);
+    for(let gx=cx-1;gx<=cx+1&&!dead[i];gx++)for(let gy=cy-1;gy<=cy+1;gy++){
+      const arr=grid.get(gx+','+gy); if(!arr)continue;
+      for(const j of arr){ if(j<=i||dead[j])continue; const v=particles[j]; if(v.owner===u.owner)continue;
+        const ddx=u.x-v.x,ddy=u.y-v.y; if(ddx*ddx+ddy*ddy<R2){ dead[i]=1;dead[j]=1;burst((u.x+v.x)/2,(u.y+v.y)/2,'#ffffff',8,.34); if(Math.random()<.12)sfx('hit'); break; } }
+      if(dead[i])break;
+    }
+  }
+  for(let i=n-1;i>=0;i--)if(dead[i]){particles[i].removed=true;particles.splice(i,1);}
+}
+
+function orbitingGarrisonCombat(){
+  // When moving/orbiting planets bring their orbital bands across another colour,
+  // the visible orbiting ships that physically overlap explode. Counts are reduced.
+  if(nodes.length<2)return;
+  const hitR=4.8, hitR2=hitR*hitR;
+  for(let a=0;a<nodes.length;a++){
+    const A=nodes[a]; if(A.owner==='neutral'||A.count<1)continue;
+    for(let b=a+1;b<nodes.length;b++){
+      const B=nodes[b]; if(B.owner==='neutral'||B.owner===A.owner||B.count<1)continue;
+      const centerD=Math.hypot(A.x-B.x,A.y-B.y);
+      const bandA=A.r+26+A.level*6, bandB=B.r+26+B.level*6;
+      if(centerD>bandA+bandB+8)continue;
+      const nA=Math.min(Math.floor(A.count),PERF.maxOrbit);
+      const nB=Math.min(Math.floor(B.count),PERF.maxOrbit);
+      const strideA=nA>85?2:1, strideB=nB>85?2:1;
+      let hits=0;
+      for(let i=0;i<nA && hits<8;i+=strideA){
+        const pa=orbitPos(A,i,nA);
+        for(let j=0;j<nB && hits<8;j+=strideB){
+          const pb=orbitPos(B,j,nB);
+          const dx=pa.x-pb.x, dy=pa.y-pb.y;
+          if(dx*dx+dy*dy<=hitR2){
+            A.count=Math.max(0,A.count-1);
+            B.count=Math.max(0,B.count-1);
+            const x=(pa.x+pb.x)/2, y=(pa.y+pb.y)/2;
+            burst(x,y,'#ffffff',7,.28);
+            burst(x,y,ownerColor(A.owner),4,.2);
+            burst(x,y,ownerColor(B.owner),4,.2);
+            hits++;
+            break;
+          }
+        }
+      }
+      if(hits&&Math.random()<.35)sfx('hit');
+    }
+  }
+}
+function updatePulsars(dt){
+  for(const ps of pulsars){
+    ps.charge-=dt;
+    if(ps.wave>0){ ps.wave+=dt*180; if(ps.wave>ps.maxR)ps.wave=0; }
+    if(ps.charge<=0){ ps.charge=rnd(4,7); ps.wave=1; sfx('pulsar'); burst(ps.x,ps.y,'#cfe6ff',26,.7);
+      // destroy particles within maxR
+      for(let i=particles.length-1;i>=0;i--){const u=particles[i];if(Math.hypot(u.x-ps.x,u.y-ps.y)<ps.maxR){burst(u.x,u.y,ownerColor(u.owner),6,.3);u.removed=true;particles.splice(i,1)}}
+      // damage nearby planet garrisons lightly
+      for(const p of nodes){if(Math.hypot(p.x-ps.x,p.y-ps.y)<ps.maxR&&p.owner!=='neutral'){p.count=Math.max(0,p.count-p.count*0.18)}}
+    }
+  }
+}
+function updateHazards(dt){
+  for(const h of hazards){
+    h.phase+=dt*(h.type==='blackhole'?1.1:.55);
+    for(let i=particles.length-1;i>=0;i--){
+      const u=particles[i], dx=h.x-u.x, dy=h.y-u.y, d=Math.hypot(dx,dy)||1;
+      if(h.type==='blackhole'){
+        if(d<h.pullR){ const a=(1-d/h.pullR)*38*dt; u.vx+=(dx/d)*a; u.vy+=(dy/d)*a; }
+        if(d<h.killR){ burst(u.x,u.y,'#9ec7ff',8,.35); u.removed=true; particles.splice(i,1); }
+      } else if(h.type==='star'){
+        if(d<h.killR){ burst(u.x,u.y,'#ffd37a',10,.34); u.removed=true; particles.splice(i,1); }
+        else if(d<h.heatR){ u.vx+=(u.x-h.x)/d*8*dt; u.vy+=(u.y-h.y)/d*8*dt; if(Math.random()<.006)burst(u.x,u.y,'#ffb14a',5,.2); }
+      }
+    }
+  }
+}
+function updateExplosions(dt){for(let i=explosions.length-1;i>=0;i--){explosions[i].age+=dt;if(explosions[i].age>=explosions[i].life)explosions.splice(i,1)}}
+function burst(x,y,col,r,life){explosions.push({x,y,col,r,life,age:0,seed:rnd(0,1e4),n:Math.floor(rnd(6,14))})}
+
+/* ----- AI ----- */
+function sideStrength(o){let s=0,p=0;for(const n of nodes)if(n.owner===o){p++;s+=n.count}for(const u of particles)if(u.owner===o)s++;return {p,s}}
+function neutralTargetsFor(owner){
+  return nodes.filter(t=>t.owner==='neutral' && (!t.claim || t.claim===owner || true));
+}
+function activeNeutralTargets(){return nodes.filter(t=>t.owner==='neutral')}
+function aiPhase(){ return activeNeutralTargets().length?'expand':(elapsed<150?'pressure':'war'); }
+function aiExpansionReserveFor(p){
+  const base={swarm:2,expander:3,hunter:4,opportunist:3,defender:6,empire:5}[p.aiType]||4;
+  return Math.max(2,base+(p.size==='l'?2:0));
+}
+function aiReserveFor(p){
+  const phase=aiPhase();
+  if(phase==='expand')return aiExpansionReserveFor(p);
+  const base=Number(SETTINGS.aiDefenseReserve||12);
+  const sizeBonus=p.size==='l'?10:(p.size==='m'?5:1);
+  const levelBonus=(p.level-1)*4;
+  const typeBonus={defender:10,empire:8,opportunist:2,swarm:-3,expander:-1,hunter:0}[p.aiType]||0;
+  return Math.max(4,Math.floor(base+sizeBonus+levelBonus+typeBonus));
+}
+function aiAttackMinFor(p){
+  const phase=aiPhase();
+  if(phase==='expand')return Math.max(8,p.aiType==='swarm'?7:10);
+  const base=Number(SETTINGS.aiAttackMin||20);
+  const typeBonus={empire:18,hunter:7,swarm:-8,expander:-4,opportunist:0,defender:5}[p.aiType]||0;
+  return Math.max(7,Math.floor(base+typeBonus+(p.size==='l'?8:0)+(p.level-1)*5));
+}
+function aiAttackMaxFor(p){
+  const base=Number(SETTINGS.aiAttackMax||50);
+  const typeBonus={empire:32,hunter:12,swarm:-16,expander:-6,opportunist:4,defender:6}[p.aiType]||0;
+  return Math.max(aiAttackMinFor(p),Math.floor(base+typeBonus+(p.size==='l'?18:0)+(p.level-1)*8));
+}
+function aiPersonalitySpeed(p){return {swarm:1.50,hunter:1.18,opportunist:1.12,expander:1.22,defender:.86,empire:.72}[p.aiType]||1}
+function aiSkirmishChanceFor(p){
+  const base=Number(SETTINGS.aiSkirmishChance||0);
+  const type={swarm:.22,opportunist:.08,hunter:.04,expander:.04,defender:.01,empire:.00}[p.aiType]||0;
+  return Math.min(.55,base+type);
+}
+function routeHazardPenalty(a,b){
+  if(!hazards||!hazards.length)return 0; let penalty=0;
+  const ax=a.x,ay=a.y,bx=b.x,by=b.y,dx=bx-ax,dy=by-ay,len2=dx*dx+dy*dy||1;
+  for(const h of hazards){
+    const t=clamp(((h.x-ax)*dx+(h.y-ay)*dy)/len2,0,1), px=ax+dx*t, py=ay+dy*t, d=Math.hypot(px-h.x,py-h.y);
+    if(h.type==='blackhole' && d<h.pullR*.85)penalty+=(h.pullR*.85-d)*.24;
+    if(h.type==='star' && d<h.heatR*.9)penalty+=(h.heatR*.9-d)*.18;
+  }
+  return penalty;
+}
+function aiExpansionTargetScore(p,t,available){
+  const d=Math.hypot(p.x-t.x,p.y-t.y), large=t.size==='l'?1:0, mid=t.size==='m'?1:0;
+  const claimedByOther=t.claim&&t.claim!==p.owner;
+  let s=d*.032 + routeHazardPenalty(p,t);
+  if(p.aiType==='expander')s-=18+large*10+mid*4;
+  if(p.aiType==='swarm')s+=d*.018-large*3;
+  if(p.aiType==='hunter')s-=large*12;
+  if(p.aiType==='opportunist'&&claimedByOther)s-=24;
+  if(p.aiType==='defender')s+=large?2:0;
+  if(p.aiType==='empire')s-=large*18+mid*5;
+  if(claimedByOther)s-=5;
+  s+=Math.max(0,(t.hp||10)+2-available)*18;
+  return s;
+}
+function aiTargetScore(p,t,available){
+  const phase=aiPhase();
+  const d=Math.hypot(p.x-t.x,p.y-t.y);
+  const resist=(t.owner===p.owner?0:t.hp)+(t.count||0);
+  const weak=t.owner!=='neutral' && t.owner!==p.owner && (t.hp<5 || t.count<7);
+  const contested=t.owner==='neutral' && t.claim;
+  let s=d*.025 + routeHazardPenalty(p,t);
+  if(t.owner==='neutral'){
+    s-= phase==='expand'?34:18;
+    if(p.aiType==='expander')s-=18;
+  } else if(t.owner!==p.owner) {
+    // Symmetric rule: player, red, violet and gold are all just rival colours.
+    s-= phase==='war'?18:12;
+    if(p.aiType==='hunter')s-=10;
+    if(p.aiType==='empire'&&phase!=='expand')s-=16;
+    if(weak&&p.aiType==='opportunist')s-=32;
+  }
+  if(contested&&p.aiType==='opportunist')s-=20;
+  if(p.aiType==='defender' && phase==='expand' && t.owner!=='neutral')s+=18;
+  if(p.aiType==='swarm'&&d<245)s-=10;
+  if(t.owner===p.owner)s+=260;
+  if(t.size==='l')s-=5;
+  s+=Math.max(0,resist-available)*1.14;
+  if(available<resist+6)s+=85;
+  return s;
+}
+function aiExpansion(dt,p,pressure){
+  const reserve=aiExpansionReserveFor(p), available=Math.max(0,Math.floor(p.count-reserve));
+  if(available<7)return false;
+  const targets=activeNeutralTargets(); if(!targets.length)return false;
+  let best=null,score=1e9;
+  for(const t of targets){const s=aiExpansionTargetScore(p,t,available);if(s<score){score=s;best=t}}
+  if(!best)return false;
+  const claimedByOther=best.claim&&best.claim!==p.owner;
+  let need=(best.hp||10)+(claimedByOther?4:1);
+  if(best.size==='l'&&p.aiType==='empire')need+=3;
+  if(p.aiType==='swarm')need=Math.max(7,need-2);
+  if(available<need)return false;
+  const extra=p.aiType==='expander'?rnd(0,4):(p.aiType==='swarm'?rnd(0,2):rnd(0,3));
+  const amount=Math.min(available,Math.ceil(need+extra));
+  if(amount>0){launchFleet(p,best,null,amount,reserve);balance.attacks++;balance.lastWave=amount;balance.totalWave+=amount;return true}
+  return false;
+}
+function ai(dt){
+  const diff=DIFF[diffIndex], pressure=diff.aiMul*Number(SETTINGS.aiAggression), phase=aiPhase();
+  for(const p of nodes){
+    if(!isHostile(p.owner))continue;
+    const speed=aiPersonalitySpeed(p);
+    const phaseK=phase==='expand'?1.95:(phase==='pressure'?1.0:1.16);
+    p.aiT-=dt*pressure*phaseK*speed;
+    if(p.aiT>0)continue;
+    if(phase==='expand'){
+      p.aiT=(p.aiType==='empire'?rnd(1.2,2.8):(p.aiType==='swarm'?rnd(.45,1.4):rnd(.6,2.1)))/Math.max(.45,pressure);
+      if(aiExpansion(dt,p,pressure))continue;
+      // If a colour cannot expand yet, check again soon instead of sleeping through the opening.
+      p.aiT=Math.min(p.aiT,rnd(.7,1.7));
+      continue;
+    }
+    const baseDelay=p.aiType==='empire'?rnd(5.0,9.0):(p.aiType==='swarm'?rnd(1.9,4.0):rnd(2.8,6.4));
+    p.aiT=baseDelay/Math.max(.45,pressure);
+    const reserve=aiReserveFor(p), available=Math.max(0,Math.floor(p.count-reserve));
+    const skirmish=Math.random()<aiSkirmishChanceFor(p);
+    const minAttack=aiAttackMinFor(p);
+    if(!skirmish && available<minAttack)continue;
+    if(skirmish && available<8)continue;
+    let best=null,score=1e9;
+    for(const t of nodes){ if(t.id===p.id)continue; const s=aiTargetScore(p,t,available); if(s<score){score=s;best=t} }
+    if(!best||best.owner===p.owner)continue;
+    let amount=0;
+    if(skirmish){ amount=Math.min(available,Math.floor(rnd(p.aiType==='swarm'?6:4,p.aiType==='swarm'?14:10))); }
+    else { amount=Math.min(available,Math.floor(rnd(minAttack,aiAttackMaxFor(p)+1))); }
+    if(amount>0){ launchFleet(p,best,null,amount,reserve); balance.attacks++; balance.lastWave=amount; balance.totalWave+=amount; }
+  }
+}
+function updateBattleHeat(dt){
+  let contact=0;
+  // count opposing particles near each other => fights => heat
+  contact=Math.min(1, particles.length/(PERF.mobile?300:700));
+  let frontline=0; for(const p of nodes){ if(p.count<3 && p.owner!=='neutral')frontline++; }
+  const target=clamp(contact*0.7 + frontline*0.06,0,1);
+  battleHeat=lerp(battleHeat,target,dt*0.6);
+}
+function checkWin(){
+  const hasP=nodes.some(n=>n.owner==='player')||particles.some(u=>u.owner==='player');
+  const hasE=nodes.some(n=>isHostile(n.owner))||particles.some(u=>isHostile(u.owner));
+  if(!hasP)return end(false);
+  if(!hasE)return end(true);
+}
+function end(win){
+  if(gameOver)return; gameOver=true;
+  toast.textContent=win?T('win'):T('lose'); toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),1600);
+  if(win){ sfx('capture'); const stars=starsForTime(); recordWin(constIndex,levelIndex,stars);
+    $('endTitle').textContent=T('win');
+    $('endText').textContent=(Number(SETTINGS.language)>=1?'Time ':'Tiempo ')+fmtTime(elapsed)+'  ·  '+'★'.repeat(stars)+'☆'.repeat(3-stars);
+  } else { sfx('lost'); $('endTitle').textContent=T('lose'); $('endText').textContent=(Number(SETTINGS.language)>=1?'The system fell. Try a different opening.':'El sistema cayó. Prueba otra apertura.'); }
+  // configure Next button availability
+  const hasNext=levelIndex<CONSTS[constIndex].levels.length-1 || constIndex<CONSTS.length-1;
+  $('endNextBtn').style.display=(win&&hasNext)?'block':'none';
+  setTimeout(()=>$('endCard').classList.add('show'),900);
+}
+function starsForTime(){ const t=elapsed; if(t<90)return 3; if(t<180)return 2; return 1 }
+function fmtTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60).toString().padStart(2,'0');return m+':'+ss}
+function updateStats(){
+  const me=sideStrength('player');
+  const en=nodes.filter(n=>isHostile(n.owner)).length;
+  stats.textContent=fmtTime(elapsed)+'\n'+(Number(SETTINGS.language)>=1?'Planets ':'Planetas ')+me.p+'  ·  '+(Number(SETTINGS.language)>=1?'Foes ':'Rival ')+en;
+  if(balance.show){debug.style.display='block';debug.textContent='BALANCE\nTiempo: '+fmtTime(elapsed)+'\nAtaques IA: '+balance.attacks+'\nÚltima oleada: '+balance.lastWave+'\nMedia oleada: '+(balance.attacks?Math.round(balance.totalWave/balance.attacks):0)+'\nPartículas: '+particles.length+'\nFase IA: '+aiPhase();} else if(debug.dataset.balance==='1'){debug.style.display='none';}
+}
+
+/* ============================================================
+   CAMERA
+   ============================================================ */
+function applyCamera(){ctx.translate(W/2,H/2);ctx.scale(camera.zoom,camera.zoom);ctx.translate(-W/2+camera.x,-H/2+camera.y)}
+function screenToWorld(x,y){return{x:W/2+(x-W/2)/camera.zoom-camera.x,y:H/2+(y-H/2)/camera.zoom-camera.y}}
+function setZoom(z){camera.zoom=clamp(z,camera.min,camera.max);clampCamera();const b=$('zoomBadge');if(b)b.textContent=Math.round(camera.zoom*100)+'%'}
+function centerCamera(){camera.x=0;camera.y=0;camera.vx=0;camera.vy=0;setZoom(camera.min)}
+function focusCameraOn(x,y,z){camera.x=W/2-x;camera.y=H/2-y;camera.vx=0;camera.vy=0;setZoom(z||Math.max(.82,camera.zoom));}
+function clampCamera(){
+  if(!nodes.length){camera.x=0;camera.y=0;return}
+  let minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
+  for(const p of nodes){minX=Math.min(minX,p.x-p.r-30);maxX=Math.max(maxX,p.x+p.r+30);minY=Math.min(minY,p.y-p.r-30);maxY=Math.max(maxY,p.y+p.r+30)}
+  const mx=40,mt=80,mb=56;
+  let minCamX=(W-mx-W/2)/camera.zoom-maxX+W/2, maxCamX=(mx-W/2)/camera.zoom-minX+W/2;
+  let minCamY=(H-mb-H/2)/camera.zoom-maxY+H/2, maxCamY=(mt-H/2)/camera.zoom-minY+H/2;
+  // Two-finger navigation should feel free. Keep a generous invisible margin around the map,
+  // especially when the whole system is zoomed out and would otherwise be locked in the centre.
+  const free=Math.max(90,Math.min(W,H)*.62)/Math.max(camera.zoom,.05);
+  minCamX-=free; maxCamX+=free; minCamY-=free; maxCamY+=free;
+  if(minCamX>maxCamX){const c=(minCamX+maxCamX)/2; camera.x=clamp(camera.x,c-free,c+free)} else camera.x=clamp(camera.x,minCamX,maxCamX);
+  if(minCamY>maxCamY){const c=(minCamY+maxCamY)/2; camera.y=clamp(camera.y,c-free,c+free)} else camera.y=clamp(camera.y,minCamY,maxCamY);
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function isCoarsePointer(){ try{ return typeof window!=='undefined' && typeof window.matchMedia==='function' && window.matchMedia('(pointer: coarse)').matches; }catch(_){ return false; } }
+function updateOrientationGate(){
+  try{ const show=isCoarsePointer() && innerHeight>innerWidth; const el=$('rotateGate'); if(el)el.classList.toggle('show',!!show); }catch(_){}
+}
+let triedLandscapeLock=false;
+function tryLockLandscape(force=false){
+  if(triedLandscapeLock&&!force)return; triedLandscapeLock=true;
+  try{
+    const el=document.documentElement;
+    const reqFS=el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen||el.msRequestFullscreen;
+    const doLock=()=>{ try{ if(typeof screen!=='undefined' && screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{}); }catch(_){} updateOrientationGate(); };
+    if(reqFS && !document.fullscreenElement && !document.webkitFullscreenElement){ const p=reqFS.call(el); if(p&&typeof p.then==='function')p.then(doLock).catch(doLock); else doLock(); }
+    else doLock();
+  }catch(_){updateOrientationGate()}
+}
+function syncViewportHeight(){try{document.documentElement.style.setProperty('--vh',(window.innerHeight*.01)+'px')}catch(_){}}
+function resize(){syncViewportHeight();DPR=Math.min(PERF.dprMax,window.devicePixelRatio||1);W=innerWidth;H=innerHeight;
+  updateOrientationGate();
+  canvas.width=Math.floor(W*DPR);canvas.height=Math.floor(H*DPR);ctx.setTransform(DPR,0,0,DPR,0,0);
+  makeBackground();
+  if(nodes.length){ for(const p of nodes){ const np=norm(p.nx,p.ny); if(p.motion){p.motion.anchorX=np.x;p.motion.anchorY=np.y;} else {p.bx=np.x;p.by=np.y;} }
+    const lvl=CONSTS[constIndex]?.levels?.[levelIndex]; if(lvl)addMapHazards(lvl);
+    separateNodes(); updateNodePositions(true); if(running)fitCameraToLevel(); }
+}
+function makeBackground(){
+  stars=[];clouds=[];
+  const n=Math.floor((W*H)/PERF.starDiv);
+  for(let i=0;i<n;i++)stars.push({x:Math.random()*W,y:Math.random()*H,r:rnd(.3,1.6),a:rnd(.12,.8),tw:rnd(.25,1.3),drift:rnd(-3,3)});
+  const nc=Math.max(2,Math.round((PERF.mobile?4:6)*Number(SETTINGS.nebulaDensity||1)));
+  for(let i=0;i<nc;i++)clouds.push({x:rnd(.02,.98)*W,y:rnd(.04,.98)*H,rx:rnd(W*.2,W*.46),ry:rnd(H*.1,H*.24),a:rnd(.025,.07),h:i%3,dx:rnd(-5,5),dy:rnd(-3,3),ph:rnd(0,TAU)});
+}
+function hexToRgba(hex,a){const h=hex.replace('#','');return 'rgba('+parseInt(h.slice(0,2),16)+','+parseInt(h.slice(2,4),16)+','+parseInt(h.slice(4,6),16)+','+a+')'}
+function shade(hex,amt){const h=hex.replace('#','');let r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
+  r=clamp(Math.round(r+amt*255),0,255);g=clamp(Math.round(g+amt*255),0,255);b=clamp(Math.round(b+amt*255),0,255);
+  return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('')}
+
+function draw(){
+  _trackFPS();
+  ctx.clearRect(0,0,W,H); drawBackground();
+  if(editorMode){drawEditor();return}
+  if(!running){drawMenuRings();return}
+  ctx.save();applyCamera();
+  drawNebulae(); drawHazards(); drawWormholes(); drawPulsars();
+  for(const p of nodes)drawOrbit(p,false);
+  for(const p of nodes)drawSun(p);
+  for(const p of nodes)drawOrbit(p,true);
+  drawParticles();
+  drawSelection();
+  drawRoutePreview();
+  drawExplosions();
+  drawDragSelect();
+  ctx.restore();
+}
+function drawBackground(){
+  // deep space base with a faint top-light
+  const base=ctx.createLinearGradient(0,0,0,H);
+  base.addColorStop(0,'#04070f'); base.addColorStop(.55,'#02040b'); base.addColorStop(1,'#010206');
+  ctx.fillStyle=base;ctx.fillRect(0,0,W,H);
+  const px=-camera.x*camera.zoom*.05, py=-camera.y*camera.zoom*.05, cx=W*.5+px, cy=H*.42+py;
+  ctx.save();ctx.globalCompositeOperation='screen';
+  const breath=.5+.5*Math.sin(elapsed*.18);
+  const core=ctx.createRadialGradient(cx,cy,0,cx,cy,Math.min(W,H)*1.0);
+  core.addColorStop(0,'rgba(110,170,255,'+(.05+battleHeat*.05+breath*.015)+')');
+  core.addColorStop(.3,'rgba(60,120,255,.045)');
+  core.addColorStop(.6,'rgba(120,80,255,'+(.028+battleHeat*.03)+')');
+  core.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=core;ctx.beginPath();ctx.arc(cx,cy,Math.min(W,H)*1.0,0,TAU);ctx.fill();
+  const skipCloud=_hiLoad()&&(PERF.frame%2===1);
+  if(!skipCloud)for(const c of clouds){const cxp=c.x+px*.5+Math.sin(elapsed*.04+c.ph)*c.dx*4, cyp=c.y+py*.5+Math.cos(elapsed*.035+c.ph)*c.dy*4;
+    const pulse=.85+.15*Math.sin(elapsed*.12+c.ph);
+    ctx.save();ctx.translate(cxp,cyp);
+    const g=ctx.createRadialGradient(0,0,0,0,0,Math.max(c.rx,c.ry));
+    const col=c.h===0?'70,160,255':c.h===1?'150,100,255':'90,200,235';
+    g.addColorStop(0,'rgba('+col+','+(c.a*1.4*pulse)+')');g.addColorStop(.5,'rgba('+col+','+(c.a*.4*pulse)+')');g.addColorStop(1,'rgba('+col+',0)');
+    ctx.fillStyle=g;ctx.scale(1,c.ry/c.rx);ctx.beginPath();ctx.arc(0,0,c.rx,0,TAU);ctx.fill();ctx.restore()}
+  // skip twinkling every 2nd frame under load (twinkling is slow so this is invisible)
+  const skipTw=_hiLoad()&&(PERF.frame%2===0);
+  for(const s of stars){const tw=skipTw?.7:(.55+.45*Math.sin(elapsed*s.tw+s.x));ctx.fillStyle='rgba(220,236,255,'+(s.a*tw)+')';
+    ctx.beginPath();ctx.arc(s.x+px*s.r*.12+(skipTw?0:Math.sin(elapsed*.02)*s.drift),s.y+py*s.r*.12,s.r,0,TAU);ctx.fill()}
+  ctx.restore();
+  // soft vignette for depth
+  const vig=ctx.createRadialGradient(W/2,H*.46,Math.min(W,H)*.34,W/2,H*.5,Math.max(W,H)*.78);
+  vig.addColorStop(0,'rgba(0,0,0,0)');vig.addColorStop(1,'rgba(0,0,4,.5)');
+  ctx.fillStyle=vig;ctx.fillRect(0,0,W,H);
+}
+function drawMenuRings(){ctx.save();ctx.globalAlpha=.4;for(let i=0;i<7;i++){ctx.strokeStyle='rgba(90,170,255,'+(.02+i*.006)+')';ctx.lineWidth=1;ctx.beginPath();ctx.arc(W/2,H*.42,Math.min(W,H)*(.14+i*.08),0,TAU);ctx.stroke()}ctx.restore()}
+function drawNebulae(){
+  ctx.save();ctx.globalCompositeOperation='screen';
+  for(const nb of nebulae){const g=ctx.createRadialGradient(nb.x,nb.y,nb.r*.2,nb.x,nb.y,nb.r);
+    g.addColorStop(0,'rgba(150,110,255,.10)');g.addColorStop(.6,'rgba(110,80,220,.06)');g.addColorStop(1,'rgba(110,80,220,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(nb.x,nb.y,nb.r,0,TAU);ctx.fill();
+    ctx.strokeStyle='rgba(160,130,255,.10)';ctx.lineWidth=1;ctx.setLineDash([6,8]);ctx.beginPath();ctx.arc(nb.x,nb.y,nb.r,0,TAU);ctx.stroke();ctx.setLineDash([]);
+  }ctx.restore();
+}
+function drawHazards(){
+  ctx.save();ctx.globalCompositeOperation='screen';
+  for(const h of hazards){
+    if(h.type==='blackhole'){
+      const spin=h.phase;
+      const outer=ctx.createRadialGradient(h.x,h.y,0,h.x,h.y,h.pullR*.62);
+      outer.addColorStop(0,'rgba(0,0,0,.92)');outer.addColorStop(.18,'rgba(6,10,22,.98)');outer.addColorStop(.36,'rgba(70,120,255,.22)');outer.addColorStop(1,'rgba(90,140,255,0)');
+      ctx.fillStyle=outer;ctx.beginPath();ctx.arc(h.x,h.y,h.pullR*.62,0,TAU);ctx.fill();
+      for(let k=0;k<3;k++){ctx.strokeStyle='rgba(150,190,255,'+(.22-k*.055)+')';ctx.lineWidth=1.4;ctx.beginPath();ctx.ellipse(h.x,h.y,h.r*(2.0+k*.9),h.r*(.58+k*.2),spin+k*.8,0,TAU);ctx.stroke();}
+      ctx.fillStyle='rgba(0,0,2,.96)';ctx.beginPath();ctx.arc(h.x,h.y,h.r,0,TAU);ctx.fill();
+    } else {
+      const pulse=.78+.22*Math.sin(elapsed*.8+h.phase);
+      const g=ctx.createRadialGradient(h.x,h.y,0,h.x,h.y,h.heatR*.9);
+      g.addColorStop(0,'rgba(255,245,210,'+(.8*pulse)+')');g.addColorStop(.12,'rgba(255,192,70,.55)');g.addColorStop(.42,'rgba(255,130,40,.16)');g.addColorStop(1,'rgba(255,80,10,0)');
+      ctx.fillStyle=g;ctx.beginPath();ctx.arc(h.x,h.y,h.heatR*.9,0,TAU);ctx.fill();
+      ctx.fillStyle='rgba(255,245,220,.95)';ctx.beginPath();ctx.arc(h.x,h.y,h.r*(.55+.08*pulse),0,TAU);ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+function drawWormholes(){
+  ctx.save();ctx.globalCompositeOperation='screen';
+  for(const w of wormholes){const rot=elapsed*1.4;
+    for(let k=0;k<3;k++){ctx.strokeStyle='rgba(150,120,255,'+(.5-k*.13)+')';ctx.lineWidth=1.6;
+      ctx.beginPath();ctx.ellipse(w.x,w.y,w.r-k*4,(w.r-k*4)*.42,rot+k*.7,0,TAU);ctx.stroke();}
+    const g=ctx.createRadialGradient(w.x,w.y,0,w.x,w.y,w.r*1.4);g.addColorStop(0,'rgba(180,150,255,.4)');g.addColorStop(1,'rgba(120,90,255,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(w.x,w.y,w.r*1.4,0,TAU);ctx.fill();
+  }ctx.restore();
+}
+function drawPulsars(){
+  ctx.save();ctx.globalCompositeOperation='screen';
+  for(const ps of pulsars){
+    const ch=1-clamp(ps.charge/5,0,1);
+    const g=ctx.createRadialGradient(ps.x,ps.y,0,ps.x,ps.y,ps.r*2);
+    g.addColorStop(0,'rgba(200,230,255,'+(.5+ch*.4)+')');g.addColorStop(1,'rgba(120,170,255,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(ps.x,ps.y,ps.r*2,0,TAU);ctx.fill();
+    ctx.fillStyle='rgba(230,244,255,.9)';ctx.beginPath();ctx.arc(ps.x,ps.y,ps.r*(.4+ch*.3),0,TAU);ctx.fill();
+    if(ps.wave>0){const a=1-ps.wave/ps.maxR;ctx.strokeStyle='rgba(210,235,255,'+(a*.6)+')';ctx.lineWidth=3*a+1;ctx.beginPath();ctx.arc(ps.x,ps.y,ps.wave,0,TAU);ctx.stroke();}
+  }ctx.restore();
+}
+function drawConnections(){ /* routes removed in fleet model */ }
+function orbitPos(p,i,total){
+  const seed=p.seed+i*9.17, lvl=p.level;
+  const lane=i%(3+lvl);
+  // Stable orbital motion: defenders never jump, gather, loop toward attackers, or change lane.
+  // Combat is resolved only when an attacker physically crosses one of these visible positions.
+  const speed=.38+rndFixed(seed,0,.22);
+  const drift=Math.sin(elapsed*.11+seed)*.035;
+  const phase=seed+elapsed*speed+(i*0.61803*TAU)+drift;
+  const rr=p.r+7+lvl*4+lane*3+rndFixed(seed+2,-1,3)+Math.sin(elapsed*.6+seed)*1.4;
+  const ecc=.34+rndFixed(seed+3,-.04,.1), tilt=rndFixed(seed+4,-.4,.4)+Math.sin(elapsed*.05+p.seed)*.06;
+  const a=phase, ca=Math.cos(a),sa=Math.sin(a),ct=Math.cos(tilt),st=Math.sin(tilt);
+  let ox=ca*rr, oy=sa*rr*ecc;
+  return {x:p.x+ox*ct-oy*st, y:p.y+ox*st+oy*ct, front:sa>0, seed};
+}
+function drawOrbit(p,front){
+  if(p.owner==='neutral'&&p.count<=0&&!front){ /* still draw faint defenders */ }
+  const col=ownerColor(p.owner), n=Math.floor(p.count), drawN=Math.min(n,PERF.maxOrbit);
+  if(drawN<=0)return;
+  ctx.save();ctx.globalCompositeOperation='lighter';
+  // Set shadow ONCE per planet — not per dot (major perf win)
+  ctx.shadowColor=col;
+  ctx.shadowBlur=_hiLoad()?0:(PERF.mobile?3:7)*PERF.fx;
+  ctx.fillStyle=hexToRgba(col,(p.owner==='neutral'?.5:.92));
+  for(let i=0;i<drawN;i++){
+    const s=orbitPos(p,i,drawN); if(s.front!==front)continue;
+    const pulse=.85+.3*Math.sin(elapsed*3+s.seed);
+    ctx.beginPath();ctx.arc(s.x,s.y,(1.3+(i%3)*.12)*pulse,0,TAU);ctx.fill();
+  }
+  ctx.restore();
+}
+function drawSun(p){
+  const col=ownerColor(p.owner), lvl=p.level, breath=.92+.08*Math.sin(elapsed*1.1+p.seed);
+  // No numbers or life rings: only planet, ships and a very subtle growth halo when growth is possible.
+  const vitality=1;
+  const flicker=0;
+  const tint=(p.owner==='neutral'&&p.claim)?ownerColor(p.claim):col;
+  ctx.save();
+  if(p.level<(p.maxLevel||3)){
+    // Soft growth signature: more visible than before, but still organic and not a UI marker.
+    ctx.save();ctx.globalCompositeOperation='screen';
+    const growPulse=.5+.5*Math.sin(elapsed*.82+p.seed);
+    const shimmer=.75+.25*Math.sin(elapsed*1.7+p.seed*.37);
+    const growR=p.r+8+growPulse*3.8;
+    const grow=ctx.createRadialGradient(p.x,p.y,p.r*.78,p.x,p.y,growR+22);
+    grow.addColorStop(0,hexToRgba(tint,0));
+    grow.addColorStop(.46,hexToRgba(tint,.075*PERF.fx*shimmer));
+    grow.addColorStop(.74,hexToRgba('#ffffff',.026*PERF.fx*shimmer));
+    grow.addColorStop(1,hexToRgba(tint,0));
+    ctx.fillStyle=grow;ctx.beginPath();ctx.arc(p.x,p.y,growR+22,0,TAU);ctx.fill();
+    ctx.strokeStyle=hexToRgba(tint,.22*PERF.fx*shimmer);ctx.lineWidth=1.05;ctx.beginPath();ctx.arc(p.x,p.y,growR,0,TAU);ctx.stroke();
+    ctx.strokeStyle=hexToRgba('#eafcff',.06*PERF.fx*shimmer);ctx.lineWidth=.7;ctx.beginPath();ctx.arc(p.x,p.y,growR+4.5,0,TAU);ctx.stroke();
+    ctx.restore();
+  }
+  // outer aura (breathing; dims as vitality fades, flickers when a gray planet is being contested)
+  ctx.save();ctx.globalCompositeOperation='screen';
+  const auraR=p.r*(p.owner==='neutral'?2.2:3.0+lvl*.35)*breath;
+  const auraA=p.owner==='neutral'?(.10+flicker*.16):(.10+vitality*.16);
+  const aura=ctx.createRadialGradient(p.x,p.y,p.r*.2,p.x,p.y,auraR);
+  aura.addColorStop(0,hexToRgba(tint,auraA*(p.owner==='neutral'?1:1.6)*PERF.fx));
+  aura.addColorStop(.45,hexToRgba(tint,auraA*.55*PERF.fx));
+  aura.addColorStop(1,hexToRgba(tint,0));
+  ctx.fillStyle=aura;ctx.beginPath();ctx.arc(p.x,p.y,auraR,0,TAU);ctx.fill();
+  if(p.owner!=='neutral'){const cor=ctx.createRadialGradient(p.x,p.y,p.r*.6,p.x,p.y,p.r*1.5);
+    cor.addColorStop(0,hexToRgba(col,.18*vitality*PERF.fx));cor.addColorStop(1,hexToRgba(col,0));
+    ctx.fillStyle=cor;ctx.beginPath();ctx.arc(p.x,p.y,p.r*1.5,0,TAU);ctx.fill();}
+  ctx.restore();
+  // body — a wounded planet visibly dims and darkens at its own surface, no separate indicator
+  const dim=lerp(-.5,0,vitality);
+  const g=ctx.createRadialGradient(p.x-p.r*.36,p.y-p.r*.42,1,p.x,p.y,p.r*1.32);
+  if(p.owner==='neutral'){
+    g.addColorStop(0,'rgba(226,234,244,.96)');
+    g.addColorStop(.5, flicker>0.02?shade(tint,-.15):'rgba(122,134,152,.85)');
+    g.addColorStop(1,'rgba(28,34,46,.96)');
+  } else {
+    g.addColorStop(0,'rgba(255,255,255,'+(0.99*(.55+vitality*.45)).toFixed(3)+')');
+    g.addColorStop(.2,shade(col,.2+dim*.3));
+    g.addColorStop(.58,shade(col,-.06+dim*.4));
+    g.addColorStop(1,shade(col,-.42+dim*.3));
+  }
+  ctx.fillStyle=g;ctx.shadowColor=tint;ctx.shadowBlur=(p.owner==='neutral'?6+flicker*10:16*vitality)*PERF.fx;
+  ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,TAU);ctx.fill();ctx.shadowBlur=0;
+  // specular highlight
+  ctx.save();ctx.globalCompositeOperation='screen';
+  const hl=ctx.createRadialGradient(p.x-p.r*.34,p.y-p.r*.4,0,p.x-p.r*.34,p.y-p.r*.4,p.r*.8);
+  hl.addColorStop(0,'rgba(255,255,255,'+(.5*(p.owner==='neutral'?1:.5+vitality*.5)).toFixed(3)+')');hl.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=hl;ctx.beginPath();ctx.arc(p.x-p.r*.34,p.y-p.r*.4,p.r*.8,0,TAU);ctx.fill();ctx.restore();
+  // rim — the planet's own light brightens with vitality / contested flicker; upgrade tier reads through size and aura alone
+  ctx.strokeStyle=hexToRgba('#dff7ff',.42*(p.owner==='neutral'?1:.6+vitality*.4));ctx.lineWidth=1;ctx.beginPath();ctx.arc(p.x,p.y,p.r-.4,0,TAU);ctx.stroke();
+  ctx.strokeStyle=hexToRgba(tint,p.owner==='neutral'?(.18+flicker*.5):(.2+vitality*.32));ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,p.r+1.2,0,TAU);ctx.stroke();
+  ctx.restore();
+}
+function drawParticles(){
+  ctx.save();ctx.globalCompositeOperation='lighter';
+  const tl=Number(SETTINGS.trailLength||1);
+  const blur=_hiLoad()?0:(PERF.mobile?2:5)*PERF.fx;
+  // Batch particles by owner colour → minimise GPU state switches (shadowColor)
+  const buckets={};
+  for(const u of particles){const c=u.owner;(buckets[c]||(buckets[c]=[])).push(u)}
+  for(const [owner,batch] of Object.entries(buckets)){
+    const col=ownerColor(owner);
+    ctx.shadowColor=col; ctx.shadowBlur=blur;
+    for(const u of batch){
+      if(u.state==='hold'){
+        if(u.selected){ctx.strokeStyle=hexToRgba('#eafcff',.9);ctx.lineWidth=1;
+          ctx.beginPath();ctx.arc(u.x,u.y,3.4,0,TAU);ctx.stroke();}
+        ctx.fillStyle=hexToRgba(col,.95);
+        ctx.beginPath();ctx.arc(u.x,u.y,1.8,0,TAU);ctx.fill();
+      } else {
+        ctx.strokeStyle=hexToRgba(col,.5*PERF.fx);ctx.lineWidth=PERF.mobile?.8:1.1;
+        ctx.beginPath();ctx.moveTo(lerp(u.x,u.px,tl),lerp(u.y,u.py,tl));ctx.lineTo(u.x,u.y);ctx.stroke();
+        ctx.fillStyle=hexToRgba(col,.95);ctx.beginPath();ctx.arc(u.x,u.y,u.selected?2.2:1.5,0,TAU);ctx.fill();
+        if(u.selected){ctx.strokeStyle=hexToRgba('#eafcff',.8);ctx.lineWidth=1;ctx.beginPath();ctx.arc(u.x,u.y,3.6,0,TAU);ctx.stroke();}
+      }
+    }
+  }
+  ctx.restore();
+}
+function drawSelection(){
+  // Intentionally no planet selection ring: selected planets must remain visually natural.
+  // The order/route preview is enough feedback when a destination is chosen.
+  return;
+}
+function drawRoutePreview(){
+  if(!(selectedSources.size||selectedUnits.length)||!previewPoint)return;
+  let sx=0,sy=0,n=0;
+  for(const id of selectedSources){const p=nodes.find(x=>x.id===id); if(p){sx+=p.x;sy+=p.y;n++;}}
+  for(const u of selectedUnits){if(u){sx+=u.x;sy+=u.y;n++;}}
+  if(!n)return; sx/=n; sy/=n;
+  const target=nodeAt(previewPoint.x,previewPoint.y)||previewPoint;
+  const tx=target.x,ty=target.y, col=target.owner&&target.owner!=='player'?'#ff9db0':ownerColor('player');
+  const mx=(sx+tx)/2, my=(sy+ty)/2-28/camera.zoom;
+  ctx.save();ctx.globalCompositeOperation='screen';ctx.strokeStyle=hexToRgba(col,.34);ctx.lineWidth=1.3/camera.zoom;ctx.setLineDash([8/camera.zoom,9/camera.zoom]);
+  ctx.beginPath();ctx.moveTo(sx,sy);ctx.quadraticCurveTo(mx,my,tx,ty);ctx.stroke();ctx.setLineDash([]);
+  if(hazards&&hazards.length){
+    const risk=routeHazardPenalty({x:sx,y:sy},{x:tx,y:ty});
+    if(risk>6){ctx.strokeStyle='rgba(255,194,77,.35)';ctx.lineWidth=2/camera.zoom;ctx.beginPath();ctx.moveTo(sx,sy);ctx.quadraticCurveTo(mx,my,tx,ty);ctx.stroke();}
+  }
+  ctx.restore();
+}
+
+function drawExplosions(){
+  ctx.save();ctx.globalCompositeOperation='lighter';
+  for(const e of explosions){const k=e.age/e.life,a=1-k,rad=e.r*(.4+k*2);
+    ctx.shadowColor=e.col;ctx.shadowBlur=16*a*PERF.fx;
+    ctx.strokeStyle=hexToRgba(e.col,a*.7);ctx.lineWidth=1.4;ctx.beginPath();ctx.arc(e.x,e.y,rad,0,TAU);ctx.stroke();
+    ctx.shadowBlur=0; // skip shadow on inner spark dots — they're tiny and shadow is the main cost
+    for(let i=0;i<Math.min(e.n,PERF.mobile?5:9);i++){const ang=e.seed+i*2.4;const len=rad*(.3+k);
+      ctx.fillStyle=hexToRgba(e.col,a*.8);ctx.beginPath();ctx.arc(e.x+Math.cos(ang)*len,e.y+Math.sin(ang)*len,(1+rndFixed(e.seed+i,0,1.4))*a,0,TAU);ctx.fill()}
+  }ctx.restore();
+}
+function drawDragSelect(){
+  if(!dragSelect.active||!dragSelect.moved)return;
+  const x=Math.min(dragSelect.startX,dragSelect.lastX),y=Math.min(dragSelect.startY,dragSelect.lastY),
+    w=Math.abs(dragSelect.lastX-dragSelect.startX),h=Math.abs(dragSelect.lastY-dragSelect.startY);
+  ctx.save();ctx.globalCompositeOperation='screen';ctx.strokeStyle='rgba(127,210,255,.5)';ctx.fillStyle='rgba(63,224,255,.06)';
+  ctx.lineWidth=1.4/camera.zoom;ctx.setLineDash([7/camera.zoom,5/camera.zoom]);
+  ctx.strokeRect(x,y,w,h);ctx.setLineDash([]);ctx.fillRect(x,y,w,h);ctx.restore();
+}
+
+/* ============================================================
+   INPUT
+   ============================================================ */
+function nodeAt(x,y){let best=null,bd=1e9;for(const p of nodes){const d=Math.hypot(x-p.x,y-p.y);const reach=p.r+clamp(20/camera.zoom,16,52);if(d<reach&&d<bd){bd=d;best=p}}return best}
+function commandNodeAt(x,y){
+  // When issuing an order, be more forgiving than simple selection.
+  // This prevents units from moving to a point beside a planet when the player clearly tapped the planet.
+  let best=null,bd=1e9;
+  for(const p of nodes){
+    const d=Math.hypot(x-p.x,y-p.y);
+    const reach=p.r+clamp(44/camera.zoom,34,132);
+    if(d<reach&&d<bd){bd=d;best=p}
+  }
+  return best;
+}
+function pos(e){const r=canvas.getBoundingClientRect();return screenToWorld(e.clientX-r.left,e.clientY-r.top)}
+function touchDist(e){if(!e.touches||e.touches.length<2)return 0;const a=e.touches[0],b=e.touches[1];return Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY)}
+function onTouchStart(e){if(e.touches&&e.touches.length===2){e.preventDefault();
+  // Two fingers = camera navigation only. Cancel selections/editor taps immediately.
+  dragSelect.active=false;dragSelect.pointerId=null;hideEditorMenu();
+  const a=e.touches[0],b=e.touches[1],midX=(a.clientX+b.clientX)*.5,midY=(a.clientY+b.clientY)*.5;
+  camera.pinch=true;camera.vx=0;camera.vy=0;camera.lastDist=touchDist(e);camera.lastZoom=camera.zoom;
+  camera.startMidX=midX;camera.startMidY=midY;camera.startX=camera.x;camera.startY=camera.y;
+  camera.lastPanX=midX;camera.lastPanY=midY;camera.lastPanT=performance.now();camera.gestureWorld=screenToWorld(midX,midY);
+}}
+function onTouchMove(e){if(camera.pinch&&e.touches&&e.touches.length===2){e.preventDefault();
+  const a=e.touches[0],b=e.touches[1],midX=(a.clientX+b.clientX)*.5,midY=(a.clientY+b.clientY)*.5;
+  const d=touchDist(e),t=performance.now(),dt=Math.max(16,t-camera.lastPanT)/1000;
+  // Pan is incremental and independent from pinch, so two fingers can move the map freely even
+  // when the distance between fingers does not change.
+  const panDx=(midX-camera.lastPanX)/Math.max(camera.zoom,.05), panDy=(midY-camera.lastPanY)/Math.max(camera.zoom,.05);
+  camera.x+=panDx; camera.y+=panDy;
+  // Pinch zoom around the current midpoint without making the map jump under the fingers.
+  if(camera.lastDist>0&&d>0){
+    const scale=clamp(d/camera.lastDist,.86,1.16);
+    if(Math.abs(scale-1)>.003){
+      const before=screenToWorld(midX,midY);
+      camera.zoom=clamp(camera.zoom*scale,camera.min,camera.max);
+      const after=screenToWorld(midX,midY);
+      camera.x+=after.x-before.x; camera.y+=after.y-before.y;
+    }
+  }
+  camera.vx=panDx/dt;camera.vy=panDy/dt;camera.lastPanX=midX;camera.lastPanY=midY;camera.lastPanT=t;camera.lastDist=d;camera.lastZoom=camera.zoom;
+  clampCamera();const badge=$('zoomBadge');if(badge)badge.textContent=Math.round(camera.zoom*100)+'%';
+}}
+function onTouchEnd(e){if(!e.touches||e.touches.length<2){camera.pinch=false;camera.gestureWorld=null;setTimeout(()=>{camera.pinch=false},30)}}
+function onWheel(e){if(!running)return;e.preventDefault();setZoom(camera.zoom*(e.deltaY<0?1.08:.92))}
+function onDown(e){if(camera.pinch||e.isPrimary===false)return;e.preventDefault();
+  if(editorMode){const q=pos(e);dragSelect={active:true,pointerId:e.pointerId,startX:q.x,startY:q.y,moved:false,lastX:q.x,lastY:q.y,clientX:e.clientX,clientY:e.clientY};if(canvas.setPointerCapture)try{canvas.setPointerCapture(e.pointerId)}catch(_){};return}
+  if(!running||paused||gameOver)return;
+  const q=pos(e); dragSelect={active:true,pointerId:e.pointerId,startX:q.x,startY:q.y,moved:false,lastX:q.x,lastY:q.y};
+  if(canvas.setPointerCapture)try{canvas.setPointerCapture(e.pointerId)}catch(_){}}
+function onMove(e){if(camera.pinch)return;if(!running||paused||gameOver)return;const q=pos(e);if(selectedSources.size||selectedUnits.length)previewPoint=q;if(dragSelect.active&&e.pointerId===dragSelect.pointerId){dragSelect.lastX=q.x;dragSelect.lastY=q.y;if(Math.hypot(q.x-dragSelect.startX,q.y-dragSelect.startY)>9/camera.zoom)dragSelect.moved=true}}
+function clearSelection(){ selectedSources.clear(); for(const u of selectedUnits)if(u)u.selected=false; selectedUnits=[]; }
+function spendOrbitingForOwnPlanet(p){
+  if(!p||p.owner!=='player')return 0;
+  let spent=0;
+  p.maxHp=hpForLevel(p.level);
+  // Double tap spends orbiting ships as if they had impacted the planet:
+  // repair first, then growth, then stop if the planet is already maxed.
+  while(p.count>=1 && p.hp<p.maxHp){p.count-=1;p.hp=Math.min(p.maxHp,p.hp+1);spent++;}
+  if(Number(SETTINGS.autoUpgrade)>0 && p.level<(p.maxLevel||3) && p.hp>=p.maxHp){
+    const need=upgradeCost(p.level)-(p.upgrade||0);
+    const use=Math.min(Math.floor(p.count),Math.max(0,need));
+    if(use>0){p.count-=use;p.upgrade=(p.upgrade||0)+use;spent+=use;burst(p.x,p.y,ownerColor(p.owner),Math.min(18,5+use*.22),.28);}
+    while(p.level<(p.maxLevel||3) && (p.upgrade||0)>=upgradeCost(p.level)){
+      p.upgrade-=upgradeCost(p.level);
+      p.level++;
+      p.maxHp=hpForLevel(p.level);
+      p.hp=p.maxHp;
+      p.r=radiusFor(p.size,p.level);
+      burst(p.x,p.y,ownerColor(p.owner),28,.7);
+      sfx('upgrade');
+    }
+  }
+  if(spent>0){sfx('send',1);}
+  return spent;
+}
+function commandSelection(targetNode,dest){
+  let launched=0, planets=0;
+  for(const id of selectedSources){ const s=nodes.find(n=>n.id===id); if(s&&s.owner==='player'){ if(targetNode&&targetNode.id===s.id)continue; launched+=launchFleet(s,targetNode,dest); planets++; } }
+  for(const u of selectedUnits){ if(!u||u.owner!=='player')continue; u.state='move'; u.selected=false;
+    if(targetNode){u.target=targetNode.id;u.dest=null;u.commandLock=true;u.arrivalGrace=1.4;} else {u.target=null;u.dest={x:dest.x,y:dest.y};u.commandLock=false;} launched++; }
+  selectedSources.clear(); selectedUnits=[];
+  if(launched>0){ sfx('send', planets%SCALE_PENT.length);
+    help.textContent= targetNode
+      ? (targetNode.owner==='player' ? (Number(SETTINGS.language)>=1?'Reinforcing your planet.':'Reforzando tu planeta.')
+                                     : (Number(SETTINGS.language)>=1?'Attacking the target.':'Atacando el objetivo.'))
+      : (Number(SETTINGS.language)>=1?'Units moving to position.':'Unidades en camino a la posición.'); }
+  else help.textContent=(Number(SETTINGS.language)>=1?'Those planets are empty.':'Esos planetas no tienen unidades.');
+  return launched;
+}
+function onUp(e){
+  if(camera.pinch)return;
+  if(!(dragSelect.active&&(e.pointerId===dragSelect.pointerId||e.pointerId===undefined)))return;
+  const sx=dragSelect.startX,sy=dragSelect.startY,lx=dragSelect.lastX,ly=dragSelect.lastY,moved=dragSelect.moved;
+  const clientX=e.clientX||dragSelect.clientX||0, clientY=e.clientY||dragSelect.clientY||0;
+  dragSelect.active=false;dragSelect.pointerId=null;
+  if(canvas.releasePointerCapture&&e.pointerId!==undefined)try{canvas.releasePointerCapture(e.pointerId)}catch(_){}
+  if(editorMode){if(!moved)editorOnTap({x:lx,y:ly},clientX,clientY);return}
+  const en=Number(SETTINGS.language)>=1;
+  if(moved){ // box select planets + free units
+    const minX=Math.min(sx,lx),maxX=Math.max(sx,lx),minY=Math.min(sy,ly),maxY=Math.max(sy,ly);
+    clearSelection();
+    for(const p of nodes)if(p.owner==='player'&&p.x>=minX&&p.x<=maxX&&p.y>=minY&&p.y<=maxY)selectedSources.add(p.id);
+    for(const u of particles)if(u.owner==='player'&&!u.def&&u.x>=minX&&u.x<=maxX&&u.y>=minY&&u.y<=maxY){u.selected=true;selectedUnits.push(u);}
+    if(selectedSources.size+selectedUnits.length){sfx('select');help.textContent=en?'Selected. Tap a planet to attack or a point to move.':'Seleccionado. Toca un planeta para atacar o un punto para mover.'}
+    else help.textContent=en?'Nothing of yours there.':'Ahí no hay nada tuyo.';
+    return;
+  }
+  const p=nodeAt(lx,ly);
+  if(selectedSources.size||selectedUnits.length){ // already selecting -> this tap is the order
+    const target=commandNodeAt(lx,ly);
+    if(target)commandSelection(target,null); else commandSelection(null,{x:lx,y:ly});
+    previewPoint=null;lastTap={t:performance.now(),x:lx,y:ly,planet:target?target.id:null}; return;
+  }
+  if(p){
+    const t=performance.now();
+    const isDouble=t-lastTap.t<340 && lastTap.planet===p.id && Math.hypot(lx-lastTap.x,ly-lastTap.y)<clamp(34/camera.zoom,24,90);
+    if(p.owner==='player'){
+      if(isDouble){
+        const spent=spendOrbitingForOwnPlanet(p);
+        clearSelection(); previewPoint=null;
+        if(spent>0)help.textContent=en?'Orbiting ships invested.':'Unidades orbitando invertidas.';
+        else help.textContent=en?'No growth possible yet.':'No puede crecer todavía.';
+      } else {
+        selectedSources.add(p.id); sfx('select');
+        help.textContent=en?'Planet selected. Tap a planet to attack or a point to move.':'Planeta seleccionado. Toca otro planeta para atacar o un punto para mover.';
+      }
+    }
+    else help.textContent=en?'Select one of your planets first.':'Selecciona antes un planeta tuyo.';
+  } else {
+    let picked=0;
+    for(const u of particles){ if(u.owner==='player'&&!u.def&&Math.hypot(u.x-lx,u.y-ly)<28){u.selected=true;selectedUnits.push(u);picked++;} }
+    if(picked){sfx('select');help.textContent=(picked+(en?' units selected. Tap a target.':' unidades seleccionadas. Toca un objetivo.'))}
+    else { const t=performance.now(); if(t-lastTap.t<320&&Math.hypot(lx-lastTap.x,ly-lastTap.y)<40)centerCamera(); }
+  }
+  lastTap={t:performance.now(),x:lx,y:ly,planet:p?p.id:null};
+}
+
+
+
+/* ============================================================
+   LEVEL EDITOR
+   ============================================================ */
+let editorMode=false, editorNodes=[], editorPointer=null, editorDirty=false;
+function editorSizeRadius(size){return size==='l'?34:size==='m'?24:15}
+function editorNodeAt(x,y){let best=-1,bd=1e9;for(let i=0;i<editorNodes.length;i++){const p=editorWorldNode(editorNodes[i]);const d=Math.hypot(x-p.x,y-p.y);const reach=p.r+clamp(22/camera.zoom,18,54);if(d<reach&&d<bd){best=i;bd=d}}return best}
+function editorWorldNode(n){const p=norm(n.nx,n.ny), size=n.size||'s', lvl=levelFromSizeCode(size);return {id:n.id||0,nx:n.nx,ny:n.ny,bx:p.x,by:p.y,x:p.x,y:p.y,owner:n.owner||'neutral',size,level:lvl,maxLevel:3,count:Math.max(0,Math.round(n.count||0)),hp:hpForLevel(lvl),maxHp:hpForLevel(lvl),claim:null,hitT:0,r:editorSizeRadius(size),prod:1,seed:n.seed||1,kind:n.kind||'terra',editorMotion:n.motion||'static'}}
+function startEditor(seedMap){
+  editorMode=true; running=false; paused=false; gameOver=false; selectedSources.clear(); selectedUnits=[]; particles=[]; explosions=[];
+  document.body.classList.add('editorMode'); document.body.classList.remove('gameClean'); menu.classList.add('hidden'); $('endCard').classList.remove('show'); hideEditorMenu();
+  $('editorBar').classList.remove('hidden'); $('editorHint').classList.remove('hidden');
+  camera.zoom=clamp(.48,camera.min,camera.max); camera.x=0; camera.y=0; camera.vx=0; camera.vy=0;
+  editorNodes=(seedMap&&Array.isArray(seedMap.nodes)?seedMap.nodes:[]).map((n,i)=>({id:i,nx:Number(n[0])||0,ny:Number(n[1])||0,owner:n[2]||'neutral',size:n[3]||'s',motion:(n[4]==='orbit'||n[4]===1||n[4]===true)?'orbit':'static',seed:rnd(0,1e4)}));
+  editorDirty=false; setMusicScene('menu');
+}
+function exitEditor(){editorMode=false;document.body.classList.remove('editorMode');$('editorBar').classList.add('hidden');$('editorHint').classList.add('hidden');hideEditorMenu();menu.classList.remove('hidden');showMenuScreen('custom')}
+function editorNormFromWorld(x,y){const s=Math.min(W,H)*0.5*SPREAD;return {nx:clamp((x-W/2)/s,-1.75,1.75),ny:clamp((y-H/2)/s,-1.22,1.22)}}
+function editorOnTap(world,clientX,clientY){
+  const idx=editorNodeAt(world.x,world.y); editorPointer={world,clientX,clientY,idx};
+  if(idx>=0)showPlanetContext(idx,clientX,clientY); else showCreateContext(world,clientX,clientY);
+}
+function showCtxAt(x,y){const m=$('editorMenu');m.classList.remove('hidden');const w=250,h=390;m.style.left=clamp(x+8,10,innerWidth-w-10)+'px';m.style.top=clamp(y+8,10,innerHeight-h-10)+'px'}
+function hideEditorMenu(){const m=$('editorMenu');if(m){m.classList.add('hidden');m.innerHTML=''}}
+function makeCtxButton(txt,fn,cls='',active=false){const b=document.createElement('button');b.type='button';b.textContent=txt;b.className=(cls||'')+(active?' active':'');b.onclick=e=>{e.preventDefault();e.stopPropagation();fn()};return b}
+function showCreateContext(world,cx,cy){const m=$('editorMenu');m.innerHTML='';const title=document.createElement('div');title.className='ctxTitle';title.textContent='Crear planeta';m.appendChild(title);
+  [['Planeta tamaño 1','s'],['Planeta tamaño 2','m'],['Planeta tamaño 3','l']].forEach(([label,size])=>m.appendChild(makeCtxButton(label,()=>{const n=editorNormFromWorld(world.x,world.y);editorNodes.push({id:Date.now()+Math.random(),nx:n.nx,ny:n.ny,owner:'neutral',size,motion:'static',seed:rnd(0,1e4)});editorDirty=true;hideEditorMenu();sfx('select')})));
+  showCtxAt(cx,cy);
+}
+function showPlanetContext(idx,cx,cy){const n=editorNodes[idx];const m=$('editorMenu');m.innerHTML='';let title=document.createElement('div');title.className='ctxTitle';title.textContent='Planeta';m.appendChild(title);
+  [['Gris / sin equipo','neutral'],['Azul jugador','player'],['Rojo','red'],['Violeta','violet'],['Dorado','gold']].forEach(([label,owner])=>m.appendChild(makeCtxButton(label,()=>{n.owner=owner;editorDirty=true;hideEditorMenu();sfx('select')},'',n.owner===owner)));
+  title=document.createElement('div');title.className='ctxTitle';title.textContent='Tamaño';m.appendChild(title);
+  [['Tamaño 1','s'],['Tamaño 2','m'],['Tamaño 3','l']].forEach(([label,size])=>m.appendChild(makeCtxButton(label,()=>{n.size=size;editorDirty=true;hideEditorMenu();sfx('upgrade')},'',n.size===size)));
+  title=document.createElement('div');title.className='ctxTitle';title.textContent='Movimiento';m.appendChild(title);
+  [['Estático','static'],['En órbita','orbit']].forEach(([label,mv])=>m.appendChild(makeCtxButton(label,()=>{n.motion=mv;editorDirty=true;hideEditorMenu();sfx('select')},'',(n.motion||'static')===mv)));
+  m.appendChild(makeCtxButton('Eliminar planeta',()=>{editorNodes.splice(idx,1);editorDirty=true;hideEditorMenu();sfx('lost')},'danger'));
+  showCtxAt(cx,cy);
+}
+function saveEditorMap(){
+  if(editorNodes.length<2){toast.textContent='Crea al menos 2 planetas';toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1300);return}
+  let hasPlayer=editorNodes.some(n=>n.owner==='player'), hasEnemy=editorNodes.some(n=>isHostile(n.owner));
+  if(!hasPlayer)editorNodes[0].owner='player';
+  if(!hasEnemy){const target=editorNodes.find(n=>n.owner!=='player')||editorNodes[0]; if(target.owner==='player'&&editorNodes[1])editorNodes[1].owner='red'; else target.owner='red'}
+  const name=(window.prompt&&prompt('Nombre del mapa','Mapa personalizado '+(customMaps.length+1)))||('Mapa personalizado '+(customMaps.length+1));
+  const m=sanitizeCustomMap({name,nodes:editorNodes.map(n=>[n.nx,n.ny,n.owner||'neutral',n.size||'s',n.motion||'static']),orbit:0},customMaps.length);
+  customMaps.push(m); selectedCustomIndex=customMaps.length-1; saveCustomMaps(); editorDirty=false;
+  toast.textContent='Mapa guardado';toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1300); exitEditor();
+}
+function clearEditorMap(){if(editorNodes.length&&!(window.confirm&&confirm('¿Borrar todos los planetas del editor?')))return;editorNodes=[];editorDirty=true;hideEditorMenu()}
+function drawEditor(){
+  ctx.save();applyCamera();
+  const gridStep=Math.min(W,H)*.12;
+  ctx.save();ctx.globalCompositeOperation='screen';ctx.strokeStyle='rgba(90,170,255,.045)';ctx.lineWidth=1/camera.zoom;
+  for(let x=W/2-gridStep*14;x<=W/2+gridStep*14;x+=gridStep){ctx.beginPath();ctx.moveTo(x,H/2-gridStep*8);ctx.lineTo(x,H/2+gridStep*8);ctx.stroke()}
+  for(let y=H/2-gridStep*8;y<=H/2+gridStep*8;y+=gridStep){ctx.beginPath();ctx.moveTo(W/2-gridStep*14,y);ctx.lineTo(W/2+gridStep*14,y);ctx.stroke()}
+  ctx.restore();
+  for(let i=0;i<editorNodes.length;i++){
+    const p=editorWorldNode(editorNodes[i]);
+    if((editorNodes[i].motion||'static')==='orbit'){
+      ctx.save();ctx.globalCompositeOperation='screen';ctx.strokeStyle='rgba(127,210,255,.13)';ctx.lineWidth=1/camera.zoom;ctx.setLineDash([4/camera.zoom,9/camera.zoom]);
+      ctx.beginPath();ctx.ellipse(p.x,p.y,p.r+26,p.r+13,(p.seed||1)%TAU,0,TAU);ctx.stroke();ctx.restore();
+    }
+    drawSun(p);
+    if(i===editorNodes.length-1){ctx.save();ctx.globalCompositeOperation='screen';ctx.strokeStyle='rgba(127,210,255,.35)';ctx.lineWidth=1.2/camera.zoom;ctx.setLineDash([5/camera.zoom,6/camera.zoom]);ctx.beginPath();ctx.arc(p.x,p.y,p.r+10,0,TAU);ctx.stroke();ctx.restore();}
+  }
+  ctx.restore();
+}
+
+/* ============================================================
+   MENU / UI
+   ============================================================ */
+function showMenuScreen(name){
+  if(name!=='game')document.body.classList.remove('gameClean');
+  setMusicScene(name==='game'?'game':'menu');
+  ['title','config','custom','galaxy','map'].forEach(s=>{const map={title:'screenTitle',config:'screenConfig',custom:'screenCustom',galaxy:'screenGalaxy',map:'screenMap'};const el=$(map[s]);if(el)el.classList.toggle('active',s===name)});
+  if(name==='galaxy')renderConsts();
+  if(name==='custom')renderCustomMaps();
+  if(name==='map')renderLevels();
+  if(name==='config')renderConfigControls();
+}
+function renderConsts(){
+  const box=$('galaxyChoices');if(!box)return;box.innerHTML='';
+  CONSTS.forEach((c,i)=>{if(c.custom)return;const unlocked=constUnlocked(i);
+    const done=c.levels.filter((_,l)=>progress[levelKey(i,l)]).length;
+    const b=document.createElement('button');b.className='choice'+(i===constIndex?' active':'')+(unlocked?'':' locked');
+    b.innerHTML='<div class="choiceTitle">'+c.name+'</div><div class="choiceMeta">'+c.meta+'<br>'+done+'/'+c.levels.length+(Number(SETTINGS.language)>=1?' levels':' niveles')+'</div>';
+    b.onclick=()=>{ if(!unlocked){help.textContent=T('completeFirst');return} constIndex=i;levelIndex=0;showMenuScreen('map') };
+    box.appendChild(b);
+  });
+}
+function renderLevels(){
+  const box=$('mapChoices');if(!box)return;
+  const c=CONSTS[constIndex]; const intro=$('phaseIntro');
+  if(intro)intro.textContent=c.name+' · '+c.meta+' · '+(Number(SETTINGS.language)>=1?'Difficulty is built into each map.':'La dificultad la marca cada mapa.');
+  box.innerHTML='';
+  c.levels.forEach((m,i)=>{const unlocked=isUnlocked(constIndex,i), stars=progress[levelKey(constIndex,i)]||0;
+    const b=document.createElement('button');b.className='choice'+(i===levelIndex?' active':'')+(unlocked?'':' locked');
+    const enemies=m.nodes.filter(n=>isHostile(n[2])).length, planets=m.nodes.length;
+    const hazards=(m.hazards?m.hazards.length:0)+(m.pulsars?m.pulsars.length:0)+(m.wormholes?m.wormholes.length:0)+(m.nebula?m.nebula.length:0);
+    b.innerHTML='<div class="lvlNum">'+(isCustomConst(constIndex)?(i+1):(constIndex*5+i+1))+'</div><div class="choiceTitle" style="font-size:11px;margin-top:4px">'+m.name+'</div>'+
+      '<div class="choiceMeta">'+planets+(Number(SETTINGS.language)>=1?' planets · ':' planetas · ')+enemies+(Number(SETTINGS.language)>=1?' colours':' colores')+(hazards?' · '+hazards+(Number(SETTINGS.language)>=1?' hazards':' peligros'):'')+'</div>'+
+      '<div class="stars">'+(unlocked?('★'.repeat(stars)+'☆'.repeat(3-stars)):'🔒')+'</div>';
+    b.onclick=()=>{ if(!unlocked){help.textContent=T('completeFirst');return} levelIndex=i;renderLevels() };
+    box.appendChild(b);
+  });
+}
+
+function renderCustomMaps(){
+  syncCustomConst(); const box=$('customMapChoices'); if(!box)return; box.innerHTML='';
+  const intro=$('customIntro'); if(intro)intro.textContent=customMaps.length?('Tienes '+customMaps.length+' mapas guardados.'):('Todavía no hay mapas guardados. Crea uno desde el editor.');
+  if(!customMaps.length){const b=document.createElement('button');b.className='choice active';b.innerHTML='<div class="choiceTitle">Sin mapas</div><div class="choiceMeta">Pulsa crear mapa nuevo para abrir el editor.</div>';box.appendChild(b);return}
+  customMaps.forEach((m,i)=>{const b=document.createElement('button');b.className='choice'+(i===selectedCustomIndex?' active':'');const enemies=m.nodes.filter(n=>isHostile(n[2])).length, planets=m.nodes.length;
+    b.innerHTML='<div class="lvlNum">'+(i+1)+'</div><div class="choiceTitle" style="font-size:11px;margin-top:4px">'+m.name+'</div><div class="choiceMeta">'+planets+' planetas · '+enemies+' colores rivales</div>';
+    b.onclick=()=>{selectedCustomIndex=i;renderCustomMaps()};box.appendChild(b)});
+}
+function playSelectedCustomMap(){if(!customMaps.length){startEditor();return}syncCustomConst();constIndex=customConstIndex();levelIndex=clamp(selectedCustomIndex,0,customMaps.length-1);startGame()}
+
+function renderConfigControls(){
+  const box=$('configControls');if(!box)return;box.innerHTML='';let group='';
+  for(const [key,label,grp,min,max,step] of SETTINGS_META){
+    if(grp!==group){group=grp;const h=document.createElement('div');h.className='sectionLabel';h.style.gridColumn='1/-1';h.textContent=grp;box.appendChild(h)}
+    const row=document.createElement('div');row.className='configRow';const val=Number(SETTINGS[key]);
+    row.innerHTML='<label><span>'+label+'</span><b id="cv_'+key+'">'+fmtCfg(key,val)+'</b></label><input id="ci_'+key+'" type="range" min="'+min+'" max="'+max+'" step="'+step+'" value="'+val+'">';
+    box.appendChild(row);
+    const inp=row.querySelector('input'),out=row.querySelector('b');
+    inp.addEventListener('input',()=>{SETTINGS[key]=Number(inp.value);out.textContent=fmtCfg(key,SETTINGS[key]);applySettingsRuntime(true);
+      if(['starDensity','nebulaDensity','graphicsPreset','lowPowerMode'].includes(key))resize();
+      if(key==='language'){renderConfigControls();}},{passive:true});
+  }
+}
+function fmtCfg(key,v){
+  if(['musicEnabled','sfxEnabled','melodyOnActions','lowPowerMode','autoUpgrade','maxLevelLimits'].includes(key))return Number(v)>=1?(Number(SETTINGS.language)>=1?'On':'Sí'):(Number(SETTINGS.language)>=1?'Off':'No');
+  if(key==='language')return Number(v)>=1?'English':'Español';
+  if(key==='graphicsPreset')return [(Number(SETTINGS.language)>=1?'Performance':'Rendimiento'),(Number(SETTINGS.language)>=1?'Balanced':'Equilibrado'),(Number(SETTINGS.language)>=1?'Quality':'Calidad'),'Ultra'][Math.round(Number(v))]||'';
+  return (Math.round(v*100)/100)+(key.includes('Mul')||key.includes('Volume')||key.includes('Speed')||['musicEpic','musicBass','bloom','starDensity','nebulaDensity','trailLength','aiAggression','hudScale','cameraInertia'].includes(key)?'×':'');
+}
+
+/* ============================================================
+   LOOP + BIND
+   ============================================================ */
+function loop(t){now=t/1000;const dt=Math.min(.033,now-last||.016);last=now;try{update(dt);draw()}catch(e){showError(e)}requestAnimationFrame(loop)}
+let lastUiAction=0;
+function bindClick(id,fn){const el=$(id);if(!el)return;const h=e=>{if(e){e.preventDefault();e.stopPropagation()}const ts=performance.now();if(ts-lastUiAction<120)return;lastUiAction=ts;try{fn(e)}catch(err){showError(err)}};el.onclick=h;el.addEventListener('pointerup',h,{passive:false})}
+function gotoNext(){
+  if(levelIndex<CONSTS[constIndex].levels.length-1){levelIndex++}
+  else if(constIndex<CONSTS.length-1){constIndex++;levelIndex=0}
+  startGame();
+}
+function bind(){
+  window.addEventListener('pointerdown',()=>{initAudio();setMusicScene(running?'game':'menu');tryLockLandscape()},{once:true,passive:true});
+  window.addEventListener('resize',resize);
+  window.addEventListener('keydown',e=>{if((e.key||'').toLowerCase()==='b'){balance.show=!balance.show;debug.dataset.balance=balance.show?'1':'0';if(!balance.show)debug.style.display='none';}}, {passive:true});
+  if(typeof window.addEventListener==='function')window.addEventListener('orientationchange',updateOrientationGate);
+  canvas.addEventListener('pointerdown',onDown,{passive:false});
+  canvas.addEventListener('pointermove',onMove,{passive:false});
+  canvas.addEventListener('pointerup',onUp,{passive:false});
+  canvas.addEventListener('pointercancel',onUp,{passive:false});
+  canvas.addEventListener('touchstart',onTouchStart,{passive:false});
+  canvas.addEventListener('touchmove',onTouchMove,{passive:false});
+  canvas.addEventListener('touchend',onTouchEnd,{passive:false});
+  canvas.addEventListener('touchcancel',onTouchEnd,{passive:false});
+  canvas.addEventListener('wheel',onWheel,{passive:false});
+  bindClick('beginBtn',()=>showMenuScreen('galaxy'));
+  bindClick('customMapsBtn',()=>showMenuScreen('custom'));
+  bindClick('editorBtn',()=>startEditor());
+  bindClick('configBtn',()=>showMenuScreen('config'));
+  bindClick('backCustomBtn',()=>showMenuScreen('title'));
+  bindClick('customNewBtn',()=>startEditor());
+  bindClick('customPlayBtn',playSelectedCustomMap);
+  bindClick('editorBackBtn',exitEditor);
+  bindClick('editorClearBtn',clearEditorMap);
+  bindClick('editorSaveBtn',saveEditorMap);
+  bindClick('backConfigBtn',()=>showMenuScreen('title'));
+  bindClick('configResetBtn',resetSettings);
+  bindClick('configSaveBtn',()=>{saveSettings();help.textContent=(Number(SETTINGS.language)>=1?'Settings saved.':'Ajustes guardados.')});
+  bindClick('configLevelsBtn',()=>{saveSettings();showMenuScreen('galaxy')});
+  bindClick('configPlayBtn',()=>{saveSettings();startGame()});
+  bindClick('backTitleBtn',()=>showMenuScreen('title'));
+  bindClick('backGalaxyBtn',()=>showMenuScreen('galaxy'));
+  bindClick('startBtn',()=>{saveSettings();startGame()});
+  bindClick('menuBtn',()=>{document.body.classList.remove('gameClean');setMusicScene('menu');menu.classList.remove('hidden');running=false;$('endCard').classList.remove('show');showMenuScreen('galaxy')});
+  bindClick('pauseBtn',()=>{if(!running)return;paused=!paused;$('pauseBtn').textContent=paused?'▶':'II'});
+  bindClick('speedBtn',()=>{if(!running)return;gameSpeedStep=(gameSpeedStep+1)%SPEED_STEPS.length;$('speedBtn').textContent=SPEED_STEPS[gameSpeedStep]+'×'});
+  bindClick('resetBtn',()=>{if(running)buildLevel();else{menu.classList.remove('hidden');showMenuScreen('galaxy')}});
+  bindClick('zoomInBtn',()=>setZoom(camera.zoom*1.12));
+  bindClick('zoomOutBtn',()=>setZoom(camera.zoom*.88));
+  bindClick('centerBtn',centerCamera);
+  bindClick('fullBtn',()=>tryLockLandscape(true));
+  bindClick('endNextBtn',gotoNext);
+  bindClick('endRetryBtn',()=>startGame());
+  bindClick('endMenuBtn',()=>{document.body.classList.remove('gameClean');$('endCard').classList.remove('show');menu.classList.remove('hidden');running=false;setMusicScene('menu');showMenuScreen('map')});
+}
+function init(){loadSettings();loadProgress();loadCustomMaps();bind();resize();setMusicScene('title');applyLanguage();renderConsts();requestAnimationFrame(loop)}
+init();
+})();
+</script>
+</body>
+</html>
