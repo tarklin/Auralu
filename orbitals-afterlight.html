@@ -7,7 +7,7 @@
 <style>
 :root{
   --bg:#03060f; --txt:#eaf6ff; --muted:#8da6c6; --line:rgba(130,190,255,.18);
-  --panel:rgba(7,15,30,.66); --cyan:#3fe0ff; --accent:#7fd0ff; --gold:#ffc24d;
+  --panel:rgba(7,15,30,.66); --cyan:#3fe0ff; --accent:#7fd0ff; --gold:#ffdd22;
   --uiScale:1;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -305,9 +305,10 @@ let battleHeat=0; // adaptive-music intensity 0..1
 let previewPoint=null;
 let balance={attacks:0,lastWave:0,totalWave:0,started:0,show:false};
 
-const PALETTE={player:'#3fe0ff', red:'#ff5d73', violet:'#b47bff', gold:'#ffc24d', neutral:'#8392a8'};
-const HOSTILE=new Set(['red','violet','gold']);
-function ownerColor(o){return PALETTE[o]||PALETTE.neutral}
+const PALETTE={player:'#3fe0ff', red:'#ff4444', green:'#44ff88', yellow:'#ffdd22', violet:'#cc66ff', orange:'#ff8c00', neutral:'#8392a8'};
+const HOSTILE=new Set(['red','green','yellow','violet','orange']);
+// gold is an alias kept for legacy CONSTS data; remapped to yellow at level load
+function ownerColor(o){return PALETTE[o]||(o==='gold'?PALETTE.yellow:PALETTE.neutral)}
 function isHostile(o){return HOSTILE.has(o)}
 
 /* ---------- performance profile ---------- */
@@ -677,10 +678,33 @@ const SIZES={s:{r:13,prod:1.0,def:8}, m:{r:24,prod:1.0,def:15}, l:{r:39,prod:1.0
 const FACTION_START=14;   // all colours start from the same rules; later maps are harder by layout, not by a manual selector
 const AI_TYPES=['expander','hunter','defender','opportunist','swarm','empire'];
 function aiBrainFor(owner,i,c,l,size){
-  if(owner==='red')return ['expander','swarm','hunter','expander'][(i+c+l)%4];
+  // red: aggressive all-in attacker — expands fast, swarms targets
+  if(owner==='red')   return ['expander','swarm','hunter','expander'][(i+c+l)%4];
+  // green: patient expansionist — grows slowly, defends well before striking
+  if(owner==='green') return ['expander','defender','expander','opportunist'][(i+c+l)%4];
+  // yellow: accumulator — saves troops for massive coordinated waves (empire)
+  if(owner==='yellow'||owner==='gold') return ['empire','defender','opportunist','empire'][(i+c+l)%4];
+  // violet: tactical opportunist — hunts weakened targets and seizes openings
   if(owner==='violet')return ['hunter','opportunist','expander','hunter'][(i+c+l)%4];
-  if(owner==='gold')return ['empire','defender','opportunist','empire'][(i+c+l)%4];
+  // orange: berserker rush — constant small swarms to overwhelm from multiple angles
+  if(owner==='orange')return ['swarm','hunter','swarm','expander'][(i+c+l)%4];
   return AI_TYPES[(i+c+l)%AI_TYPES.length];
+}
+// Maps original CONSTS faction names (red/violet/gold) to 5-faction variety by level tier
+function tierFactionRemap(owner,tier){
+  if(owner==='neutral'||owner==='player')return owner;
+  // slot: 0=red-slot, 1=violet-slot, 2=gold-slot
+  const slot=owner==='red'?0:(owner==='violet'?1:2);
+  let map;
+  if     (tier<15) map=['red',   'violet','yellow']; // intro: familiar factions
+  else if(tier<20) map=['red',   'green', 'yellow']; // introduce green
+  else if(tier<25) map=['orange','violet','yellow']; // introduce orange
+  else if(tier<30) map=['red',   'green', 'orange']; // mix new factions
+  else if(tier<35) map=['orange','violet','green'];  // rotate
+  else if(tier<40) map=['red',   'orange','green'];  // late game
+  else if(tier<45) map=['green', 'violet','orange']; // near final
+  else             map=['orange','green', 'yellow']; // final gauntlet
+  return map[slot]||owner;
 }
 const DIFF=[
   {name:'Mapa vivo', key:'map0', meta:'Progresión por mapa', aiMul:.92, enemyBonus:0, enemyProd:1},
@@ -697,7 +721,7 @@ let customMaps=[], selectedCustomIndex=0;
 const CUSTOM_CONST={name:'Mapas personalizados',meta:'Creados en el editor',twist:'custom',custom:true,levels:[]};
 CONSTS.push(CUSTOM_CONST);
 function customConstIndex(){return CONSTS.length-1}
-function ownerName(o){return o==='player'?'Azul':o==='red'?'Rojo':o==='violet'?'Violeta':o==='gold'?'Dorado':'Gris'}
+function ownerName(o){return o==='player'?'Azul':o==='red'?'Rojo':o==='green'?'Verde':o==='yellow'||o==='gold'?'Amarillo':o==='violet'?'Violeta':o==='orange'?'Naranja':'Gris'}
 function sizeCodeFromLevel(v){return Number(v)>=3?'l':Number(v)>=2?'m':'s'}
 function levelFromSizeCode(s){return s==='l'?3:s==='m'?2:1}
 function sanitizeCustomMap(m,idx=0){
@@ -705,7 +729,7 @@ function sanitizeCustomMap(m,idx=0){
   const defaultMotion=(m&&m.orbit)?'orbit':'static';
   const nodesOut=nodesIn.map(n=>{
     const nx=clamp(Number(n[0])||0,-1.75,1.75), ny=clamp(Number(n[1])||0,-1.22,1.22);
-    const owner=['player','red','violet','gold','neutral'].includes(n[2])?n[2]:'neutral';
+    const owner=['player','red','green','yellow','violet','orange','gold','neutral'].includes(n[2])?n[2]:'neutral';
     const size=['s','m','l'].includes(n[3])?n[3]:'s';
     const mv=(n[4]===true||n[4]===1||n[4]==='orbit')?'orbit':(n[4]==='static'||n[4]===0||n[4]===false?'static':defaultMotion);
     return [nx,ny,owner,size,mv];
@@ -771,8 +795,10 @@ function buildLevel(){
   selectedSources.clear(); selectedUnits=[]; elapsed=0;gameOver=false;battleHeat=0;previewPoint=null;balance={attacks:0,lastWave:0,totalWave:0,started:performance.now(),show:balance.show};camera.x=0;camera.y=0;
   gameSpeedStep=0; const sb=$('speedBtn'); if(sb)sb.textContent='1×';
   makeBackground();
+  const lvlTier=lvl.tier!=null?lvl.tier:(constIndex*10+levelIndex);
   lvl.nodes.forEach((n,i)=>{
-    const [nx,ny,owner,size]=n, p=norm(nx,ny), def=SIZES[size];
+    const [nx,ny,rawOwner,size]=n, p=norm(nx,ny), def=SIZES[size];
+    const owner=tierFactionRemap(rawOwner,lvlTier);
     const nodeMotionFlag=n[4];
     const customMap=isCustomConst(constIndex);
     const kind=['terra','gas','ice','ember','ring','ocean'][i%6];
@@ -894,6 +920,7 @@ function update(dt){
   updatePulsars(dt);
   updateHazards(dt);
   updateExplosions(dt);
+  aiRecall(dt);
   ai(dt);
   updateBattleHeat(dt);
   checkWin();
@@ -906,7 +933,7 @@ function spawnUnit(src,targetNode,dest){
   const aimX=targetNode?targetNode.x:dest.x, aimY=targetNode?targetNode.y:dest.y;
   const a=Math.atan2(aimY-src.y,aimX-src.x)+rnd(-.45,.45), rr=src.r+4+rnd(0,7);
   const mx=(33+rnd(-4,8))*Number(SETTINGS.particleSpeed); // slow, organic cruise speed
-  particles.push({owner:src.owner,x:src.x+Math.cos(a)*rr,y:src.y+Math.sin(a)*rr,px:src.x,py:src.y,
+  particles.push({owner:src.owner,srcId:src.id,x:src.x+Math.cos(a)*rr,y:src.y+Math.sin(a)*rr,px:src.x,py:src.y,
     vx:Math.cos(a)*mx*.35, vy:Math.sin(a)*mx*.35, maxSpeed:mx, nz:rnd(0,1e3),
     state:'move',target:targetNode?targetNode.id:null,dest:dest?{x:dest.x,y:dest.y}:null,
     commandLock:!!targetNode,arrivalGrace:1.4,age:0,seed:rnd(0,1e4),wig:rnd(0,TAU),selected:false,wcool:0});
@@ -1263,7 +1290,12 @@ function aiAttackMaxFor(p){
   const typeBonus={empire:32,hunter:12,swarm:-16,expander:-6,opportunist:4,defender:6}[p.aiType]||0;
   return Math.max(aiAttackMinFor(p),Math.floor(base+typeBonus+(p.size==='l'?18:0)+(p.level-1)*8));
 }
-function aiPersonalitySpeed(p){return {swarm:1.50,hunter:1.18,opportunist:1.12,expander:1.22,defender:.86,empire:.72}[p.aiType]||1}
+function aiPersonalitySpeed(p){
+  // base speed from AI type; then apply faction modifier
+  const base={swarm:1.50,hunter:1.18,opportunist:1.12,expander:1.22,defender:.86,empire:.72}[p.aiType]||1;
+  const factionMod={orange:1.22,red:1.10,green:.85,yellow:.80,violet:1.05}[p.owner]||1;
+  return base*factionMod;
+}
 function aiSkirmishChanceFor(p){
   const base=Number(SETTINGS.aiSkirmishChance||0);
   const type={swarm:.22,opportunist:.08,hunter:.04,expander:.04,defender:.01,empire:.00}[p.aiType]||0;
@@ -1335,6 +1367,38 @@ function aiExpansion(dt,p,pressure){
   const amount=Math.min(available,Math.ceil(need+extra));
   if(amount>0){launchFleet(p,best,null,amount,reserve);balance.attacks++;balance.lastWave=amount;balance.totalWave+=amount;return true}
   return false;
+}
+// AI recall: if a planet sent troops and now faces a threat it can't absorb, redirect ships back
+function aiRecall(dt){
+  for(const p of nodes){
+    if(!isHostile(p.owner))continue;
+    p.recallT=(p.recallT||0)-dt;
+    if(p.recallT>0)continue;
+    p.recallT=2.2+Math.random()*.8; // staggered checks
+    // swarm never recalls — momentum is their strategy
+    if(p.aiType==='swarm')continue;
+    // count incoming enemies
+    let incoming=0;
+    for(const u of particles){if(u.owner!==p.owner&&u.target===p.id)incoming++;}
+    if(incoming<6)continue; // ignore tiny probes
+    const defenders=p.count;
+    // Calculate threat ratio; threshold scales by AI type
+    const recallThreshold={empire:.85,defender:.75,expander:1.0,opportunist:1.1,hunter:1.3,swarm:99}[p.aiType]||1.0;
+    if(incoming<=defenders*recallThreshold)continue; // manageable — keep attacking
+    // Find in-flight ships from this planet that can be recalled
+    let recalled=0;
+    const maxRecall=Math.min(incoming-Math.floor(defenders*0.6),28);
+    if(maxRecall<=0)continue;
+    for(let j=0;j<particles.length&&recalled<maxRecall;j++){
+      const u=particles[j];
+      if(u.owner!==p.owner||u.srcId!==p.id||u.state!=='move')continue;
+      // Don't recall ships nearly arrived — let them complete the capture
+      const t=u.target!=null&&nodes.find(n=>n.id===u.target);
+      if(t&&Math.hypot(u.x-t.x,u.y-t.y)<t.r+22)continue;
+      u.target=p.id; u.commandLock=true; u.arrivalGrace=1.4; u.dest=null;
+      recalled++;
+    }
+  }
 }
 function ai(dt){
   const diff=DIFF[diffIndex], pressure=diff.aiMul*Number(SETTINGS.aiAggression), phase=aiPhase();
@@ -1893,7 +1957,7 @@ function showCreateContext(world,cx,cy){const m=$('editorMenu');m.innerHTML='';c
   showCtxAt(cx,cy);
 }
 function showPlanetContext(idx,cx,cy){const n=editorNodes[idx];const m=$('editorMenu');m.innerHTML='';let title=document.createElement('div');title.className='ctxTitle';title.textContent='Planeta';m.appendChild(title);
-  [['Gris / sin equipo','neutral'],['Azul jugador','player'],['Rojo','red'],['Violeta','violet'],['Dorado','gold']].forEach(([label,owner])=>m.appendChild(makeCtxButton(label,()=>{n.owner=owner;editorDirty=true;hideEditorMenu();sfx('select')},'',n.owner===owner)));
+  [['Gris / sin equipo','neutral'],['Azul jugador','player'],['Rojo','red'],['Verde','green'],['Amarillo','yellow'],['Violeta','violet'],['Naranja','orange']].forEach(([label,owner])=>m.appendChild(makeCtxButton(label,()=>{n.owner=owner;editorDirty=true;hideEditorMenu();sfx('select')},'',n.owner===owner)));
   title=document.createElement('div');title.className='ctxTitle';title.textContent='Tamaño';m.appendChild(title);
   [['Tamaño 1','s'],['Tamaño 2','m'],['Tamaño 3','l']].forEach(([label,size])=>m.appendChild(makeCtxButton(label,()=>{n.size=size;editorDirty=true;hideEditorMenu();sfx('upgrade')},'',n.size===size)));
   title=document.createElement('div');title.className='ctxTitle';title.textContent='Movimiento';m.appendChild(title);
