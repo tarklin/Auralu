@@ -566,6 +566,7 @@ let selectedSources=new Set();   // selected own planets (their garrison launche
 let selectedUnits=[];            // selected free/holding own units (redirected)
 let camera={zoom:1,min:.08,max:2.4,x:0,y:0,pinch:false,lastDist:0,lastZoom:1,startMidX:0,startMidY:0,startX:0,startY:0,lastPanX:0,lastPanY:0,lastPanT:0,vx:0,vy:0,gestureWorld:null};
 let cameraShake={x:0,y:0,power:0,t:0,d:0};
+let camPunch={amt:0,t:0,d:0};
 let tutorialTimers=[];
 let lastTap={t:0,x:0,y:0}, tapHoldTimer=null, dragSelect={active:false,pointerId:null,startX:0,startY:0,moved:false,lastX:0,lastY:0};
 let battleHeat=0; // adaptive-music intensity 0..1
@@ -1833,6 +1834,9 @@ function startGame(){
 function showError(e,where='runtime'){const msg=logError(e,where);debug.style.display='block';debug.textContent='Error: '+msg;running=false;paused=false;if(pausePanel)pausePanel.classList.remove('show');menu.classList.remove('hidden');renderDiagnostics()}
 function haptic(pattern){try{if(typeof navigator!=='undefined' && navigator.vibrate)navigator.vibrate(pattern)}catch(_){}}
 function screenShake(power=3,duration=.24){if(Number(SETTINGS.reducedFlashes)>=1){power*=.35;duration*=.65}cameraShake.power=Math.max(cameraShake.power,power);cameraShake.t=Math.max(cameraShake.t,duration);cameraShake.d=Math.max(cameraShake.d,duration)}
+// A brief zoom-in "punch" for moments that deserve more weight than a shake alone —
+// large/boss captures, galaxy clears. Kept rare on purpose so it still reads as special.
+function cameraPunch(power=1,duration=.5){if(Number(SETTINGS.reducedFlashes)>=1){power*=.4;duration*=.7}camPunch.amt=Math.max(camPunch.amt,power);camPunch.t=Math.max(camPunch.t,duration);camPunch.d=Math.max(camPunch.d,duration)}
 function impactBurst(x,y,col,power=1){
   burst(x,y,'#ffffff',7+power*4,.22+power*.08);
   burst(x,y,col,10+power*8,.28+power*.10);
@@ -1954,6 +1958,10 @@ function update(dt){
     cameraShake.x=rnd(-1,1)*cameraShake.power*kk;
     cameraShake.y=rnd(-1,1)*cameraShake.power*kk;
     if(cameraShake.t<=0){cameraShake.x=0;cameraShake.y=0;cameraShake.power=0;cameraShake.d=0;}
+  }
+  if(camPunch.t>0){
+    camPunch.t=Math.max(0,camPunch.t-dt);
+    if(camPunch.t<=0){camPunch.amt=0;camPunch.d=0;}
   }
   updateNodePositions(); clampCamera();
   // production: planet size drives generation speed. Size 1 = 1 unit / 3s, size 2 = 1 unit / 2s, size 3 = 1 unit / 1s.
@@ -2197,9 +2205,13 @@ function hitPlanet(t,u){
     if(!t.claim || t.claim===u.owner){
       t.claim=u.owner; t.hp-=1;
       if(t.hp<=0){
-        const wasBoss=t.boss, oldOwner=t.owner; t.owner=u.owner; t.claim=null; t.count=0; t.upgrade=0; applyNodeStats(t,true);
+        const wasBoss=t.boss, wasLarge=t.size==='l', oldOwner=t.owner; t.owner=u.owner; t.claim=null; t.count=0; t.upgrade=0; applyNodeStats(t,true);
         noteCapture(t,u.owner,oldOwner,wasBoss);
         impactBurst(t.x,t.y,ownerColor(u.owner),wasBoss?2.8:1.7); burst(t.x,t.y,ownerColor(u.owner),wasBoss?42:26,wasBoss?1.0:.8); sfx('capture'); haptic(wasBoss?[30,40,30]:18);
+        if(u.owner==='player' && (wasBoss||wasLarge)){
+          cameraPunch(wasBoss?2.2:1.35,wasBoss?.6:.42);
+          bossEffects.push({type:'captureFlare',x:t.x,y:t.y,owner:u.owner,age:0,life:wasBoss?1.6:1.1,maxR:t.r*(wasBoss?5.4:3.6)});
+        }
         if(wasBoss){toast.textContent=(t.bossName||'JEFE')+' TOMADO';toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1100)}
         if(u.owner==='player')help.textContent=en?'Captured. It produces for you now.':'Capturado. Ya produce para ti.';
       }
@@ -2210,9 +2222,10 @@ function hitPlanet(t,u){
     const oldOwner=t.owner;
     t.hp-=1;
     if(t.hp<=0){
-      const wasBoss=t.boss; t.owner='neutral'; t.claim=null; t.count=0; t.upgrade=0; applyNodeStats(t,true);
+      const wasBoss=t.boss, wasLarge=t.size==='l'; t.owner='neutral'; t.claim=null; t.count=0; t.upgrade=0; applyNodeStats(t,true);
       noteCapture(t,u.owner,oldOwner,wasBoss);
       impactBurst(t.x,t.y,oldOwner==='player'?'#ff5d73':'#9fb0c8',wasBoss?2.6:1.5); burst(t.x,t.y,'#9fb0c8',wasBoss?38:24,wasBoss?.94:.68); sfx('capture'); haptic(wasBoss?[22,34,22]:14);
+      if(u.owner==='player' && (wasBoss||wasLarge))cameraPunch(wasBoss?1.6:.9,wasBoss?.5:.34);
       if(oldOwner==='player'){toast.textContent='PLANETA PERDIDO';toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),900)}
       if(wasBoss){toast.textContent=(t.bossName||'JEFE')+' NEUTRALIZADO';toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1100)}
       if(u.owner==='player')help.textContent=en?'Knocked to neutral — spend 10 more to claim it.':'Pasó a gris: gasta otros 10 para hacerlo tuyo.';
@@ -2790,7 +2803,7 @@ function end(win){
       if(reward)reward.textContent+=' · '+((GALAXY_LORE[constIndex]&&GALAXY_LORE[constIndex][2])||'Galaxia liberada');
       if(eventBanner){eventBanner.textContent='GALAXIA LIBERADA';eventBanner.classList.add('show');setTimeout(()=>eventBanner.classList.remove('show'),1800)}
       if(transitionVeil){setTimeout(()=>transitionVeil.classList.add('show'),350);setTimeout(()=>transitionVeil.classList.remove('show'),1200)}
-      screenShake(5.2,.42);
+      screenShake(5.2,.42); cameraPunch(2.6,.75);
     }
   } else { sfx('lost'); haptic([60,60,90]); $('endTitle').textContent=T('lose'); $('endText').textContent=(Number(SETTINGS.language)>=1?'The system fell. Try a different opening.':'El sistema cayó. Prueba otra apertura.'); if(reward)reward.textContent=rewardText(false,0,lvl); }
   if(statGrid){
@@ -2827,7 +2840,12 @@ function updateStats(){
 /* ============================================================
    CAMERA
    ============================================================ */
-function applyCamera(){ctx.translate(W/2+cameraShake.x,H/2+cameraShake.y);ctx.scale(camera.zoom,camera.zoom);ctx.translate(-W/2+camera.x,-H/2+camera.y)}
+function applyCamera(){
+  const kk=camPunch.d>0?clamp(camPunch.t/camPunch.d,0,1):0;
+  const punchZoom=1+camPunch.amt*.05*ease01(kk);
+  const z=camera.zoom*punchZoom;
+  ctx.translate(W/2+cameraShake.x,H/2+cameraShake.y);ctx.scale(z,z);ctx.translate(-W/2+camera.x,-H/2+camera.y);
+}
 function screenToWorld(x,y){return{x:W/2+(x-W/2)/camera.zoom-camera.x,y:H/2+(y-H/2)/camera.zoom-camera.y}}
 function setZoom(z){camera.zoom=clamp(z,camera.min,camera.max);clampCamera();const b=$('zoomBadge');if(b)b.textContent=Math.round(camera.zoom*100)+'%'}
 function centerCamera(){camera.x=0;camera.y=0;camera.vx=0;camera.vy=0;setZoom(camera.min)}
@@ -3165,6 +3183,15 @@ function drawBossEffects(){
       const r=fx.maxR*(.55+.45*Math.sin(t*Math.PI)), a=(1-t)*.62;
       ctx.strokeStyle='rgba(255,210,120,'+a+')'; ctx.setLineDash([6,7]); ctx.lineWidth=2.2; ctx.beginPath(); ctx.arc(fx.x,fx.y,r,0,TAU); ctx.stroke(); ctx.setLineDash([]);
       ctx.strokeStyle='rgba(255,255,255,'+(a*.3)+')'; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(fx.x,fx.y,r*.72,0,TAU); ctx.stroke();
+    }else if(fx.type==='captureFlare'){
+      // conquest flare for a large/boss planet capture — themed by the attacker's colour,
+      // not the galaxy palette, so it reads as "you did this" rather than an ambient effect.
+      const col=ownerColor(fx.owner), r=fx.maxR*ease01(t), a=(1-t)*.62;
+      const g=ctx.createRadialGradient(fx.x,fx.y,0,fx.x,fx.y,r);
+      g.addColorStop(0,'rgba(255,255,255,'+(.22*(1-t))+')'); g.addColorStop(.35,'rgba('+col+','+(.14*a)+')'); g.addColorStop(1,'rgba('+col+',0)');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(fx.x,fx.y,r,0,TAU); ctx.fill();
+      for(let k=0;k<6;k++){const ang=k*(TAU/6)+t*1.1; ctx.strokeStyle='rgba('+col+','+(.28*a)+')'; ctx.lineWidth=Math.max(1,2.4*(1-t)); ctx.beginPath(); ctx.moveTo(fx.x,fx.y); ctx.lineTo(fx.x+Math.cos(ang)*r,fx.y+Math.sin(ang)*r); ctx.stroke();}
+      ctx.strokeStyle='rgba(255,255,255,'+(a*.5)+')'; ctx.lineWidth=1.6; ctx.beginPath(); ctx.arc(fx.x,fx.y,r*.6,0,TAU); ctx.stroke();
     }else if(fx.type==='galaxyClear'){
       const r=fx.maxR*(.2+.9*t), a=(1-t)*.5;
       const g=ctx.createRadialGradient(fx.x,fx.y,0,fx.x,fx.y,r); g.addColorStop(0,'rgba('+theme.glow+','+(.16*a)+')'); g.addColorStop(.42,'rgba('+theme.core+','+(.10*a)+')'); g.addColorStop(1,'rgba('+theme.accent+',0)');
@@ -3418,6 +3445,34 @@ function drawSun(p){
   ctx.strokeStyle=hexToRgba(tint,(p.owner==='neutral'?(.18+flicker*.5):(.2+vitality*.32))+glowBoost*.12);ctx.lineWidth=2+(glowBoost?0.6:0);planetPath(p,p.r+1.2,false);ctx.stroke();
   ctx.restore();
 }
+// Each faction reads as a distinct silhouette, not just a colour, so fights stay legible when
+// everything is small and moving fast. Points are hand-authored in local ship space (nose at
+// +x) and rotated by hand via cos/sin — cheaper than ctx.translate/rotate per unit, which
+// matters here since this runs for every particle, every frame.
+const FACTION_SHAPES={
+  player:[[1.6,0],[-1,1.1],[-.5,0],[-1,-1.1]],                                             // sleek arrowhead
+  red:[[1.7,0],[-.6,.7],[-1.5,0],[-.6,-.7]],                                                // elongated aggressive spike
+  green:[[1.1,0],[.55,.95],[-.55,.95],[-1.1,0],[-.55,-.95],[.55,-.95]],                      // steady hexagon
+  yellow:[[.95,.95],[-.95,.95],[-.95,-.95],[.95,-.95]],                                      // blocky empire square
+  violet:[[1.4,0],[.3,.35],[0,1.4],[-.3,.35],[-1.4,0],[-.3,-.35],[0,-1.4],[.3,-.35]],        // hunter 4-point star
+  orange:[[1.6,0],[-1.0,1.0],[-.4,0],[-1.0,-1.0]]                                           // concave dart/chevron
+};
+function shipHeading(u){
+  if(u.state==='hold')return (u.wig*.25+u.seed)+Math.PI/2; // tangent to the small idle drift circle
+  return Math.atan2(u.vy,u.vx);
+}
+function drawShipMarker(x,y,ang,r,owner){
+  const shape=FACTION_SHAPES[owner];
+  if(!shape){ctx.beginPath();ctx.arc(x,y,r,0,TAU);ctx.fill();return;}
+  const ca=Math.cos(ang),sa=Math.sin(ang);
+  ctx.beginPath();
+  for(let i=0;i<shape.length;i++){
+    const lx=shape[i][0]*r, ly=shape[i][1]*r;
+    const wx=x+lx*ca-ly*sa, wy=y+lx*sa+ly*ca;
+    if(i===0)ctx.moveTo(wx,wy); else ctx.lineTo(wx,wy);
+  }
+  ctx.closePath();ctx.fill();
+}
 function drawParticles(){
   ctx.save();ctx.globalCompositeOperation='lighter';
   const tl=Number(SETTINGS.trailLength||1);
@@ -3425,16 +3480,16 @@ function drawParticles(){
   // Above a busy-scene threshold, drop it entirely instead of just scaling it down —
   // that is what actually keeps large battles from tanking the frame rate.
   const useBlur=particles.length<380;
-  for(const u of particles){const col=ownerColor(u.owner);
+  for(const u of particles){const col=ownerColor(u.owner), ang=shipHeading(u);
     if(u.state==='hold'){
       if(u.selected){ctx.strokeStyle=hexToRgba('#eafcff',.9);ctx.lineWidth=1;if(useBlur){ctx.shadowColor=col;ctx.shadowBlur=6*PERF.fx;}
         ctx.beginPath();ctx.arc(u.x,u.y,3.4,0,TAU);ctx.stroke();}
       ctx.fillStyle=hexToRgba(col,.95);if(useBlur){ctx.shadowColor=col;ctx.shadowBlur=(PERF.mobile?2:5)*PERF.fx;}else ctx.shadowBlur=0;
-      ctx.beginPath();ctx.arc(u.x,u.y,1.8,0,TAU);ctx.fill();
+      drawShipMarker(u.x,u.y,ang,1.9,u.owner);
     } else {
       ctx.strokeStyle=hexToRgba(col,.5*PERF.fx);ctx.lineWidth=PERF.mobile? .8:1.1;if(useBlur){ctx.shadowColor=col;ctx.shadowBlur=(PERF.mobile?2:5)*PERF.fx;}else ctx.shadowBlur=0;
       ctx.beginPath();ctx.moveTo(lerp(u.x,u.px,tl),lerp(u.y,u.py,tl));ctx.lineTo(u.x,u.y);ctx.stroke();
-      ctx.fillStyle=hexToRgba(col,.95);ctx.beginPath();ctx.arc(u.x,u.y,u.selected?2.2:1.5,0,TAU);ctx.fill();
+      ctx.fillStyle=hexToRgba(col,.95);drawShipMarker(u.x,u.y,ang,u.selected?2.35:1.6,u.owner);
       if(u.selected){ctx.strokeStyle=hexToRgba('#eafcff',.8);ctx.lineWidth=1;ctx.beginPath();ctx.arc(u.x,u.y,3.6,0,TAU);ctx.stroke();}
     }
   }ctx.restore();
