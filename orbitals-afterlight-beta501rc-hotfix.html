@@ -87,6 +87,8 @@ canvas{display:block;width:100vw;height:calc(var(--vh,1vh)*100);height:100dvh;ba
 .pwaPanel{margin-top:12px;padding:12px;border-radius:16px;border:1px solid rgba(126,190,255,.16);background:rgba(3,10,24,.38);color:#a9c3e2;font-size:11px;line-height:1.45}
 .rcPanel{margin-top:14px;padding:13px;border-radius:18px;border:1px solid rgba(126,190,255,.18);background:rgba(3,10,24,.38);color:#a9c3e2;font-size:11px;line-height:1.45}
 .quickDifficulty{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:10px}
+.quickDiffDesc{margin-top:8px;padding:9px 11px;border-radius:12px;background:rgba(5,12,28,.4);border:1px solid rgba(126,190,255,.14);color:#a9c7e6;font-size:10.5px;line-height:1.4}
+.quickDiffDesc b{color:#dff5ff}
 .quickDiffBtn{border:1px solid rgba(126,190,255,.18);background:rgba(5,12,28,.58);color:#dff5ff;border-radius:999px;padding:9px 8px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer}
 .quickDiffBtn.active{border-color:rgba(255,210,120,.74);background:linear-gradient(180deg,rgba(120,95,20,.34),rgba(24,18,6,.72));color:#fff2c9}
 .achievementGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(205px,1fr));gap:10px;margin-top:12px}
@@ -431,6 +433,7 @@ body.gameClean .modeCtl{opacity:.97}
     <div class="rcPanel" id="rcPanel">
       <div class="sectionLabel">Dificultad rápida</div>
       <div class="quickDifficulty" id="quickDifficulty"></div>
+      <div class="quickDiffDesc" id="quickDiffDesc"></div>
       <div class="rcStatus" id="rcStatus"></div>
     </div>
     <button type="button" class="menuBtn primaryStart secondaryStart" id="howToBtn">Cómo jugar</button>
@@ -457,7 +460,7 @@ body.gameClean .modeCtl{opacity:.97}
     <div class="bestGrid" id="bestGrid"></div>
     <div class="sectionLabel">Galería de jefes</div>
     <div class="bossGallery" id="bossGallery"></div>
-    <div class="pwaPanel" id="pwaPanel">Preparado para PWA: si lo sirves desde HTTPS, el navegador puede instalarlo como app. En Android también puede empaquetarse con Capacitor.</div>
+    <div class="pwaPanel" id="pwaPanel">Preparado para PWA: si lo sirves desde HTTPS se activa una caché offline y el navegador puede ofrecer instalarlo como app. Desde archivo local (file://) esto no aplica. En Android también puede empaquetarse con Capacitor.</div>
   </div></section>
 
   <section class="menuScreen" id="screenConfig"><div class="section configPanel">
@@ -557,7 +560,7 @@ function angLerp(a,b,t){return a+angDelta(a,b)*clamp(t,0,1)}
 function ease01(t){t=clamp(t,0,1);return t*t*(3-2*t)}
 
 let W=0,H=0,DPR=1, now=0, last=0, running=false, paused=false, gameOver=false, elapsed=0;
-let nodes=[], particles=[], explosions=[], stars=[], clouds=[];
+let nodes=[], particles=[], explosions=[], stars=[], clouds=[], dustLanes=[], bgCluster=null, grainPattern=null;
 let wormholes=[], nebulae=[], pulsars=[], hazards=[], backdropLayer=null, bossEffects=[];
 let selectedSources=new Set();   // selected own planets (their garrison launches)
 let selectedUnits=[];            // selected free/holding own units (redirected)
@@ -857,7 +860,7 @@ const PIECES=[
 ];
 const SCHED_AHEAD=0.34, SCHED_INTERVAL_MS=110, STEPS_PER_BAR=8, CHORD_CHANGE_BARS=2;
 let curPiece=null, chordIdx=0, motifPos=0, stepIndex=0, pieceStepStart=0, pieceBarsTotal=20, nextStepTime=0;
-let bassNodes=[], padVoices=[], tensionNode=null;
+let bassNodes=[], padVoices=[], choirVoices=[], tensionNode=null;
 function epicAmt(){return Number(SETTINGS.musicEpic||1)}
 function bassAmt(){return Number(SETTINGS.musicBass||1)}
 function chordTones(p,idx){ const ro=p.moves[((idx%p.moves.length)+p.moves.length)%p.moves.length]; return p.shape.map(s=>semis(p.root,ro+s)) }
@@ -884,21 +887,50 @@ function brassTone(time,freq,dur,vol,punchy){
   const atk=punchy? .02:.6; g.gain.setValueAtTime(0,time);g.gain.linearRampToValueAtTime(vol,time+atk);g.gain.exponentialRampToValueAtTime(.0001,time+dur);
   o.connect(fl);o2.connect(fl);fl.connect(g);g.connect(musicBus);o.start(time);o2.start(time);o.stop(time+dur+.1);o2.stop(time+dur+.1);
 }
-/* shuffle-without-repeat playlist, drawn from the whole repertoire */
+/* shuffle-without-repeat playlist, drawn from the whole repertoire, weighted so the
+   intensity ("bright") of what plays tracks how far into the campaign you are —
+   later galaxies and boss levels reach for the more driving, brighter pieces. */
+function targetBrightness(){
+  if(musicMood!=='game')return .4;
+  try{
+    const g=isSkirmishConst(constIndex)?9:clamp(constIndex,0,9), l=isSkirmishConst(constIndex)?9:levelIndex;
+    const p=campaignPressure(g,l);
+    const isBossLevel=!!(CONSTS[constIndex]&&CONSTS[constIndex].levels&&CONSTS[constIndex].levels[levelIndex]&&CONSTS[constIndex].levels[levelIndex].specialGlow);
+    const bossLevel=isBossLevel ? .18 : 0;
+    return clamp(.32+p*.5+bossLevel,.28,.94);
+  }catch(_){ return .5; }
+}
+function climaxAmt(){
+  if(musicMood!=='game')return 0;
+  let bossActive=false;
+  try{ bossActive=nodes.some(n=>n.boss&&isHostile(n.owner)); }catch(_){}
+  return Math.max(battleHeat, bossActive?.82:0);
+}
 function nextPieceIdx(){
   if(musicBag.length===0){
+    const target=targetBrightness();
     musicBag=PIECES.map((_,i)=>i);
-    for(let i=musicBag.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[musicBag[i],musicBag[j]]=[musicBag[j],musicBag[i]]}
-    if(musicBag.length>1 && musicBag[0]===lastPieceIdx){const k=1+Math.floor(Math.random()*(musicBag.length-1));[musicBag[0],musicBag[k]]=[musicBag[k],musicBag[0]]}
+    musicBag.sort((a,b)=>{
+      const da=Math.abs(PIECES[a].bright-target)+rnd(0,.2);
+      const db=Math.abs(PIECES[b].bright-target)+rnd(0,.2);
+      return da-db;
+    });
+    if(musicBag.length>1 && musicBag[0]===lastPieceIdx){[musicBag[0],musicBag[1]]=[musicBag[1],musicBag[0]]}
   }
   const idx=musicBag.shift(); lastPieceIdx=idx; return idx;
 }
 function buildPieceLayers(){
   const p=curPiece, e=epicAmt(), b=bassAmt();
-  bassNodes=[ makePad(p.root*.5,.075*b*e*.7,'sine',musicBus), makePad(p.root,.05*b*e*.7,'sine',musicBus) ];
+  bassNodes=[
+    makePad(p.root*.25,.05*b*e*.65,'sine',musicBus),   // sub layer for cinematic weight
+    makePad(p.root*.5,.078*b*e*.7,'sine',musicBus),
+    makePad(p.root,.05*b*e*.7,'sine',musicBus)
+  ];
   const tones=chordTones(p,0);
   padVoices=tones.map(f=>makePad(f,.026*e,'triangle',padFilter));
   padVoices.push(makePad(tones[tones.length-1]*2,.014*e,'sine',padFilter)); // airy top voice for "epic choir" lift
+  // hidden choir pads: silent until a boss fight or high battle heat swells them in
+  choirVoices=[0,-5,7].map(shift=>makePad(semis(p.root,shift)*2,0,'sine',padFilter));
   const to=audioCtx.createOscillator(),tf=audioCtx.createBiquadFilter(),tg=audioCtx.createGain();
   to.type='sawtooth';to.frequency.value=p.root*2;to.detune.value=9;tf.type='lowpass';tf.frequency.value=900;tg.gain.value=0;
   to.connect(tf);tf.connect(tg);tg.connect(musicBus);to.start();tensionNode={o:to,g:tg};
@@ -911,15 +943,17 @@ function ensurePiece(){
   buildPieceLayers();
 }
 function finishPiece(time){
-  const old=bassNodes.concat(padVoices).concat(tensionNode?[tensionNode]:[]);
+  const old=bassNodes.concat(padVoices).concat(choirVoices).concat(tensionNode?[tensionNode]:[]);
   for(const v of old){ if(v&&v.g) v.g.gain.setTargetAtTime(0,time,2.1) }
   setTimeout(()=>{ for(const v of old){ try{ if(v&&v.o)v.o.stop(audioCtx.currentTime+.05) }catch(_){} } },5400);
-  bassNodes=[]; padVoices=[]; tensionNode=null; curPiece=null;
+  bassNodes=[]; padVoices=[]; choirVoices=[]; tensionNode=null; curPiece=null;
 }
 function playMotifSwell(time,punchy){
   const p=curPiece; const deg=p.motif[motifPos%p.motif.length]; motifPos++;
-  const f=semis(p.root,deg)*2, dur=punchy? .85:3.0, vol=(punchy? .05:.045)*epicAmt();
+  const climax=climaxAmt();
+  const f=semis(p.root,deg)*2, dur=(punchy? .85:3.0)*(1+climax*.22), vol=(punchy? .05:.045)*epicAmt()*(1+climax*.65);
   brassTone(time,f,dur,vol,!!punchy);
+  if(climax>.72 && punchy) brassTone(time+.045,f*2,dur*.55,vol*.42,true); // octave-up stab for hero moments
 }
 function playArpNote(time,stepInBar){
   const p=curPiece, tones=chordTones(p,chordIdx), f=tones[stepInBar%tones.length]*2, heat=battleHeat;
@@ -927,13 +961,17 @@ function playArpNote(time,stepInBar){
   if(heat>.75 && stepInBar%2===0) playTone(time,f*1.5,.16,'sawtooth',.035*epicAmt(),musicBus);
 }
 function playPercussion(time,stepInBar){
-  const heat=battleHeat, energy=.5+heat*.6;
+  const heat=battleHeat, energy=.5+heat*.6, climax=climaxAmt();
   if(stepInBar%4===0) playNoise(time,.16,.09*energy,170,40,'lowpass');
   else if(stepInBar%2===0) playNoise(time,.05,.032*energy,6000,2500,'highpass');
   if(stepInBar===6 && Math.random()<.4) playNoise(time,.3,.05*energy,3000,400,'bandpass');
   if(heat>.7){ // aggressive layer kicks in only when battle heat is near max
     if(stepInBar%2===1) playNoise(time,.1,.07*energy,260,60,'lowpass');
     if(stepInBar%4===2 && Math.random()<.6) playNoise(time,.12,.045*energy,5000,1800,'bandpass');
+  }
+  if(climax>.62 && stepInBar%4===0){ // deep war-drum hit under boss fights / peak battles
+    playNoise(time,.34,.1*climax*epicAmt(),140,30,'lowpass');
+    tone(48,.5,'sine',.05*climax*epicAmt(),0,musicBus,26);
   }
 }
 function scheduleStep(stepTime){
@@ -950,10 +988,15 @@ function scheduleStep(stepTime){
     }
     if(padFilter) padFilter.frequency.setTargetAtTime(560+p.bright*700+battleHeat*1400+(musicMood==='menu'?160:0)+rnd(-30,50),stepTime,2.2);
   }
+  const climax=climaxAmt();
   if(tensionNode){
-    const heat=musicMood==='game'?battleHeat:0;
+    const heat=musicMood==='game'?Math.max(battleHeat,climax*.7):0;
     tensionNode.g.gain.setTargetAtTime(Math.pow(heat,2)*.07*epicAmt(),stepTime,.5);
     tensionNode.o.frequency.setTargetAtTime(semis(p.root,p.moves[chordIdx])*2,stepTime,.8);
+  }
+  if(choirVoices.length){
+    const choirVol=Math.pow(climax,1.6)*.052*epicAmt();
+    choirVoices.forEach(v=>{ if(v&&v.g)v.g.gain.setTargetAtTime(choirVol,stepTime,1.2); });
   }
   if(musicMood==='menu'){
     if(stepInBar===0 && bar%2===0) playMotifSwell(stepTime,false);
@@ -979,8 +1022,10 @@ function applyMusicGains(){
   if(!audioCtx||!musicBus)return; const e=epicAmt(),b=bassAmt();
   const sceneMul=(musicMood==='game'?0.88:0.68);
   musicBus.gain.setTargetAtTime(sceneMul*e,audioCtx.currentTime,.45);
-  if(bassNodes[0])bassNodes[0].g.gain.setTargetAtTime((musicMood==='game'?.105:.08)*b*e*.72,audioCtx.currentTime,.55);
-  if(bassNodes[1])bassNodes[1].g.gain.setTargetAtTime((musicMood==='game'?.072:.055)*b*e*.72,audioCtx.currentTime,.55);
+  // bassNodes: [0] sub layer, [1] root*.5, [2] root — sub stays subtle, mainly adding weight in-game
+  if(bassNodes[0])bassNodes[0].g.gain.setTargetAtTime((musicMood==='game'?.062:.03)*b*e*.72,audioCtx.currentTime,.55);
+  if(bassNodes[1])bassNodes[1].g.gain.setTargetAtTime((musicMood==='game'?.105:.08)*b*e*.72,audioCtx.currentTime,.55);
+  if(bassNodes[2])bassNodes[2].g.gain.setTargetAtTime((musicMood==='game'?.072:.055)*b*e*.72,audioCtx.currentTime,.55);
 }
 function startMusicEngine(){
   if(!audioCtx||Number(SETTINGS.musicEnabled)<=0||musicOn)return;
@@ -1505,10 +1550,18 @@ function startCampaignTarget(target){
 }
 function continueCampaign(){startCampaignTarget(nextCampaignTarget())}
 function startLastLevel(){const t=progress._lastCampaign;if(t&&CONSTS[t.c]&&CONSTS[t.c].levels[t.l])startCampaignTarget(t);else continueCampaign()}
+const DIFF_DESCRIPTIONS=[
+  'IA menos agresiva y más lenta, planetas rivales empiezan con menos naves, eventos espaciales más frecuentes. Ideal para aprender el mapa.',
+  'El equilibrio original: sin bonus ni penalización para ningún bando.',
+  'IA más agresiva y reserva defensiva mayor, jefes con más vida efectiva y unidades iniciales rivales aumentadas un 8%.',
+  'Máxima presión: rivales un 18% más fuertes desde el inicio, IA muy agresiva, jefes reforzados y eventos espaciales más escasos (menos respiro).'
+];
 function setQuickDifficulty(v){SETTINGS.campaignDifficulty=clamp(Math.round(Number(v)||0),0,3);saveSettings();renderTitleStatus();renderConfigControls();toast.textContent='Dificultad: '+difficultyCfg().name;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),900)}
 function renderTitleStatus(){
-  const q=$('quickDifficulty'), st=$('rcStatus');
-  if(q){const names=['Relajado','Normal','Experto','Pesadilla'];q.innerHTML=names.map((n,i)=>'<button type="button" class="quickDiffBtn '+(Math.round(Number(SETTINGS.campaignDifficulty||1))===i?'active':'')+'" data-diff="'+i+'">'+n+'</button>').join('');q.querySelectorAll('.quickDiffBtn').forEach(b=>b.onclick=()=>setQuickDifficulty(b.dataset.diff));}
+  const q=$('quickDifficulty'), st=$('rcStatus'), desc=$('quickDiffDesc');
+  const idx=clamp(Math.round(Number(SETTINGS.campaignDifficulty||1)),0,3);
+  if(q){const names=['Relajado','Normal','Experto','Pesadilla'];q.innerHTML=names.map((n,i)=>'<button type="button" class="quickDiffBtn '+(idx===i?'active':'')+'" data-diff="'+i+'">'+n+'</button>').join('');q.querySelectorAll('.quickDiffBtn').forEach(b=>b.onclick=()=>setQuickDifficulty(b.dataset.diff));}
+  if(desc)desc.innerHTML='<b>'+difficultyCfg().name+':</b> '+(DIFF_DESCRIPTIONS[idx]||'');
   if(st){const done=Array.from({length:10},(_,i)=>CONSTS[i].levels.filter((_,l)=>progress[levelKey(i,l)]).length).reduce((a,b)=>a+b,0);const last=progress._lastCampaign;st.innerHTML='<span class="rcPill">beta50.1 RC</span><span class="rcPill">'+done+'/100 niveles</span><span class="rcPill">Dificultad '+difficultyCfg().name+'</span><span class="rcPill">Android seguro '+(Number(SETTINGS.androidSafeMode)>=1?'sí':'no')+'</span>'+(last?'<span class="rcPill">Último G'+(last.c+1)+'-'+(last.l+1)+'</span>':'');}
 }
 function autoAndroidSafeMode(){
@@ -1646,7 +1699,7 @@ function separateNodes(){
 function fitCameraToLevel(){
   if(!nodes.length)return;
   let minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
-  for(const p of nodes){ const ex=p.r+ (p.orbit?p.orbit.rad*0:0);
+  for(const p of nodes){
     minX=Math.min(minX,p.bx-p.r);maxX=Math.max(maxX,p.bx+p.r);minY=Math.min(minY,p.by-p.r);maxY=Math.max(maxY,p.by+p.r); }
   const padX=56, padTop=72, padBot=66;
   const bw=(maxX-minX)+padX*2, bh=(maxY-minY)+padTop+padBot;
@@ -1768,7 +1821,7 @@ function runSelfTest(){
   finally{constIndex=old.c;levelIndex=old.l;running=old.running;paused=old.paused;gameOver=old.gameOver;editorMode=old.editorMode;try{buildLevel()}catch(_){} renderDiagnostics();}
   return checks;
 }
-function showPausePanel(){if(!running)return;paused=true;$('pauseBtn').textContent='▶';if(pausePanel)pausePanel.classList.add('show')}
+function showPausePanel(){if(!running)return;paused=true;$('pauseBtn').textContent='▶';const mb=$('pauseMusicBtn');if(mb)mb.textContent=Number(SETTINGS.musicEnabled)>=1?'Música: ON':'Música: OFF';if(pausePanel)pausePanel.classList.add('show')}
 function hidePausePanel(){if(pausePanel)pausePanel.classList.remove('show');if(running){paused=false;$('pauseBtn').textContent='II'}}
 function showOnboarding(force=false){if(!onboardPanel)return;if(!force&&progress._onboard50)return;onboardPanel.classList.add('show')}
 function closeOnboarding(never=false){if(never){progress._onboard50=1;saveProgress()} if(onboardPanel)onboardPanel.classList.remove('show')}
@@ -1923,7 +1976,8 @@ function update(dt){
   updateDiplomacy(dt);
   updateSurvivalMode(dt);
   ai(dt);
-  if(PERF.frame%6===0)aiRedirection();
+  aiRedirection();
+  updatePlayerThreatWarnings(dt);
   updateBattleHeat(dt);
   checkWin();
   if(PERF.frame%8===0)updateStats();
@@ -2616,36 +2670,59 @@ function incomingThreatTo(node){
   }
   return n;
 }
+function updatePlayerThreatWarnings(dt){
+  // Give the player the same early-warning read the AI already has on itself via
+  // incomingThreatTo()/aiRedirection(): a pulsing ring plus a one-shot banner when a
+  // planet is about to take damage that actually matters, not just a stray probe.
+  for(const p of nodes){
+    if(p.owner!=='player')continue;
+    p.threatWarnCd=Math.max(0,(p.threatWarnCd||0)-dt);
+    p.threatPulse=Math.max(0,(p.threatPulse||0)-dt);
+    const incoming=incomingThreatTo(p);
+    if(incoming<5)continue;
+    const localDefense=Math.floor(p.count||0);
+    const damageRisk=incoming-(localDefense*.28)-Math.max(0,(p.hp||0)-3)*.18;
+    const wouldMatter=damageRisk>=Math.max(4,Math.min(13,(p.hp||10)*.55+(p.level-1)*2));
+    if(!wouldMatter)continue;
+    p.threatPulse=1.4;
+    if(p.threatWarnCd>0)continue;
+    p.threatWarnCd=7.5;
+    if(bossWarning){bossWarning.textContent='ALERTA · PLANETA EN PELIGRO';bossWarning.classList.add('show');setTimeout(()=>bossWarning.classList.remove('show'),1400)}
+    sfx('event'); haptic([12,16,12]);
+  }
+}
+let aiRedirectionCursor=0;
 function aiRedirection(){
   // AI can regret an attack: if an important planet is about to suffer meaningful damage,
   // it redirects part of its own outgoing fleet back home. Small harassment is ignored.
-  for(const owner of AI_OWNERS){
-    const owned=nodes.filter(n=>n.owner===owner);
-    if(!owned.length)continue;
-    for(const p of owned){
-      const incoming=incomingThreatTo(p);
-      if(incoming<5)continue;
-      const localDefense=Math.floor(p.count||0);
-      const damageRisk=incoming-(localDefense*.28)-Math.max(0,(p.hp||0)-3)*.18;
-      const wouldMatter=damageRisk>=Math.max(4,Math.min(13,(p.hp||10)*.55 + (p.level-1)*2));
-      if(!wouldMatter)continue;
-      const candidates=particles.filter(u=>u&&u.owner===owner&&!u.removed&&u.target!==p.id&&u.commandLock&&u.age>.45);
-      if(!candidates.length)continue;
-      candidates.sort((a,b)=>{
-        const ah=(a.home===p.id?0:1), bh=(b.home===p.id?0:1);
-        if(ah!==bh)return ah-bh;
-        return Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y);
-      });
-      const need=clamp(Math.ceil(damageRisk+3),2,Math.ceil(candidates.length*.65));
-      for(let i=0;i<need&&i<candidates.length;i++){
-        const u=candidates[i];
-        u.target=p.id; u.dest=null; u.state='move'; u.commandLock=true; u.redirected=true;
-        // keep velocity but remove wide meander by making them more decisive for a moment
-        u.arrivalGrace=.8;
-      }
-      balance.redirects=(balance.redirects||0)+Math.min(need,candidates.length);
-      burst(p.x,p.y,ownerColor(owner),5,.18);
+  // Only one faction is re-evaluated per call so the cost is spread across frames instead
+  // of all five colours being scanned in the same tick.
+  const owner=AI_OWNERS[aiRedirectionCursor%AI_OWNERS.length]; aiRedirectionCursor++;
+  const owned=nodes.filter(n=>n.owner===owner);
+  if(!owned.length)return;
+  for(const p of owned){
+    const incoming=incomingThreatTo(p);
+    if(incoming<5)continue;
+    const localDefense=Math.floor(p.count||0);
+    const damageRisk=incoming-(localDefense*.28)-Math.max(0,(p.hp||0)-3)*.18;
+    const wouldMatter=damageRisk>=Math.max(4,Math.min(13,(p.hp||10)*.55 + (p.level-1)*2));
+    if(!wouldMatter)continue;
+    const candidates=particles.filter(u=>u&&u.owner===owner&&!u.removed&&u.target!==p.id&&u.commandLock&&u.age>.45);
+    if(!candidates.length)continue;
+    candidates.sort((a,b)=>{
+      const ah=(a.home===p.id?0:1), bh=(b.home===p.id?0:1);
+      if(ah!==bh)return ah-bh;
+      return Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y);
+    });
+    const need=clamp(Math.ceil(damageRisk+3),2,Math.ceil(candidates.length*.65));
+    for(let i=0;i<need&&i<candidates.length;i++){
+      const u=candidates[i];
+      u.target=p.id; u.dest=null; u.state='move'; u.commandLock=true; u.redirected=true;
+      // keep velocity but remove wide meander by making them more decisive for a moment
+      u.arrivalGrace=.8;
     }
+    balance.redirects=(balance.redirects||0)+Math.min(need,candidates.length);
+    burst(p.x,p.y,ownerColor(owner),5,.18);
   }
 }
 function ai(dt){
@@ -2797,15 +2874,69 @@ function resize(){syncViewportHeight();DPR=Math.min(PERF.dprMax,window.devicePix
     const lvl=CONSTS[constIndex]?.levels?.[levelIndex]; if(lvl)addMapHazards(lvl);
     separateNodes(); updateNodePositions(true); if(running)fitCameraToLevel(); }
 }
+// Real star colour distribution: mostly white/blue-white, a minority of warm giants —
+// gives the field visual variety instead of uniform white dots.
+const STAR_COLOR_TABLE=[
+  {rgb:'202,218,255',w:22}, {rgb:'236,241,255',w:30}, {rgb:'255,246,218',w:24},
+  {rgb:'255,208,152',w:14}, {rgb:'255,170,142',w:10}
+];
+const STAR_COLOR_TOTAL=STAR_COLOR_TABLE.reduce((a,c)=>a+c.w,0);
+function pickStarColor(rr){
+  let roll=rr()*STAR_COLOR_TOTAL;
+  for(const c of STAR_COLOR_TABLE){ if(roll<c.w)return c.rgb; roll-=c.w; }
+  return STAR_COLOR_TABLE[0].rgb;
+}
+function backgroundSeedKey(){
+  if(isSkirmishConst(constIndex))return 'bg:skirmish:'+(currentSkirmishSeed||'random');
+  if(isCustomConst(constIndex))return 'bg:custom:'+constIndex+':'+levelIndex;
+  return 'bg:campaign:'+constIndex+':'+levelIndex;
+}
 function makeBackground(){
-  stars=[];clouds=[];
+  stars=[];clouds=[];dustLanes=[];bgCluster=null;
   if(!backdropLayer)backdropLayer=backdropFor(constIndex||0,levelIndex||0);
   const theme=(backdropLayer&&backdropLayer.theme)||galaxyTheme(constIndex||0);
   const cloudPalette=[theme.core,theme.accent,theme.glow];
+  // Seeded per level (not per galaxy): every map keeps a stable, distinct backdrop instead of
+  // reshuffling on resize/orientation change, and siblings inside the same galaxy still differ.
+  const rr=seededRng(backgroundSeedKey());
+  const R=(a,b)=>a+rr()*(b-a);
+  // density wells make the field clump like a real star field instead of scattering uniformly
+  const wells=Array.from({length:2+Math.floor(rr()*3)},()=>({x:R(0,W),y:R(0,H),r:Math.min(W,H)*R(.16,.4),mul:R(1.3,3.0)}));
   const n=Math.floor((W*H)/PERF.starDiv);
-  for(let i=0;i<n;i++)stars.push({x:Math.random()*W,y:Math.random()*H,r:rnd(.3,1.6),a:rnd(.12,.8),tw:rnd(.25,1.3),drift:rnd(-3,3)});
-  const nc=Math.max(2,Math.round((PERF.mobile?4:6)*Number(SETTINGS.nebulaDensity||1)));
-  for(let i=0;i<nc;i++)clouds.push({x:rnd(.02,.98)*W,y:rnd(.04,.98)*H,rx:rnd(W*.2,W*.46),ry:rnd(H*.1,H*.24),a:rnd(.025,.07),rgb:cloudPalette[i%cloudPalette.length],dx:rnd(-5,5),dy:rnd(-3,3),ph:rnd(0,TAU)});
+  for(let i=0;i<n;i++){
+    const x=R(0,W),y=R(0,H);
+    let density=1; for(const w of wells){const d=Math.hypot(x-w.x,y-w.y); if(d<w.r)density=Math.max(density,w.mul*(1-d/w.r));}
+    if(rr()>Math.min(1,.6+density*.5))continue;
+    const big=rr()<.03*density;
+    stars.push({x,y,r:big?R(1.4,2.5):R(.3,1.5),a:R(.14,.85),tw:R(.2,1.35),drift:R(-3,3),rgb:pickStarColor(rr),spike:big});
+  }
+  // layered, two-tone dust/gas clouds — richer than a single flat colour per blob
+  const nc=Math.max(3,Math.round((PERF.mobile?5:8)*Number(SETTINGS.nebulaDensity||1)));
+  for(let i=0;i<nc;i++){
+    clouds.push({x:R(.02,.98)*W,y:R(.04,.98)*H,rx:R(W*.18,W*.46),ry:R(H*.09,H*.24),a:R(.03,.085),
+      rgb:cloudPalette[i%cloudPalette.length],rgb2:cloudPalette[(i+1)%cloudPalette.length],
+      rot:R(0,TAU),dx:R(-5,5),dy:R(-3,3),ph:R(0,TAU)});
+  }
+  // dark dust lanes cutting across the field — the signature look of real nebula photography
+  const laneCount=1+Math.floor(rr()*2);
+  for(let i=0;i<laneCount;i++){
+    const x0=R(0,W), y0=R(0,H), ang=R(0,TAU), len=Math.min(W,H)*R(.6,1.1);
+    dustLanes.push({x0,y0,x1:x0+Math.cos(ang)*len,y1:y0+Math.sin(ang)*len,
+      bow:R(-.3,.3)*len, width:Math.min(W,H)*R(.05,.12), a:R(.14,.28)});
+  }
+  // occasional distant bright cluster / galaxy core accent, tucked in a corner
+  if(rr()<.7)bgCluster={x:R(.08,.92)*W,y:R(.06,.66)*H,r:Math.min(W,H)*R(.045,.09),rgb:cloudPalette[Math.floor(rr()*cloudPalette.length)]};
+}
+function ensureGrainPattern(){
+  if(grainPattern||!ctx)return grainPattern;
+  try{
+    const size=110, off=document.createElement('canvas'); off.width=size; off.height=size;
+    const octx=off.getContext('2d'); const img=octx.createImageData(size,size);
+    for(let i=0;i<img.data.length;i+=4){const v=128+Math.floor((Math.random()-.5)*70);img.data[i]=v;img.data[i+1]=v;img.data[i+2]=v;img.data[i+3]=Math.random()<.5?20:0;}
+    octx.putImageData(img,0,0);
+    grainPattern=ctx.createPattern(off,'repeat');
+  }catch(_){}
+  return grainPattern;
 }
 function hexToRgba(hex,a){const h=hex.replace('#','');return 'rgba('+parseInt(h.slice(0,2),16)+','+parseInt(h.slice(2,4),16)+','+parseInt(h.slice(4,6),16)+','+a+')'}
 function shade(hex,amt){const h=hex.replace('#','');let r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
@@ -2889,15 +3020,46 @@ function drawBackground(){
   ctx.fillStyle=core;ctx.beginPath();ctx.arc(cx,cy,Math.min(W,H)*1.0,0,TAU);ctx.fill();
   for(const c of clouds){const cxp=c.x+px*.5+Math.sin(elapsed*.04+c.ph)*c.dx*4, cyp=c.y+py*.5+Math.cos(elapsed*.035+c.ph)*c.dy*4;
     const pulse=.85+.15*Math.sin(elapsed*.12+c.ph);
-    ctx.save();ctx.translate(cxp,cyp);
+    ctx.save();ctx.translate(cxp,cyp);ctx.rotate(c.rot||0);
     const g=ctx.createRadialGradient(0,0,0,0,0,Math.max(c.rx,c.ry));
     const col=c.rgb||theme.core;
     g.addColorStop(0,'rgba('+col+','+(c.a*1.4*pulse)+')');g.addColorStop(.5,'rgba('+col+','+(c.a*.4*pulse)+')');g.addColorStop(1,'rgba('+col+',0)');
-    ctx.fillStyle=g;ctx.scale(1,c.ry/c.rx);ctx.beginPath();ctx.arc(0,0,c.rx,0,TAU);ctx.fill();ctx.restore()}
-  for(const s of stars){const tw=.55+.45*Math.sin(elapsed*s.tw+s.x);ctx.fillStyle='rgba(220,236,255,'+(s.a*tw)+')';
+    ctx.fillStyle=g;ctx.scale(1,c.ry/c.rx);ctx.beginPath();ctx.arc(0,0,c.rx,0,TAU);ctx.fill();ctx.restore();
+    // second, offset colour pass gives the gas cloud a mixed-hue photographic look instead of one flat tint
+    if(c.rgb2){
+      ctx.save();ctx.translate(cxp+c.rx*.16,cyp-c.ry*.14);ctx.rotate((c.rot||0)+.5);
+      const g2=ctx.createRadialGradient(0,0,0,0,0,Math.max(c.rx,c.ry)*.72);
+      g2.addColorStop(0,'rgba('+c.rgb2+','+(c.a*.9*pulse)+')');g2.addColorStop(1,'rgba('+c.rgb2+',0)');
+      ctx.fillStyle=g2;ctx.scale(1,c.ry/c.rx);ctx.beginPath();ctx.arc(0,0,c.rx*.72,0,TAU);ctx.fill();ctx.restore();
+    }
+  }
+  if(bgCluster){
+    const bx=bgCluster.x+px*.4, by=bgCluster.y+py*.4;
+    const cg=ctx.createRadialGradient(bx,by,0,bx,by,bgCluster.r);
+    cg.addColorStop(0,'rgba(255,255,255,.5)');cg.addColorStop(.25,'rgba('+bgCluster.rgb+',.22)');cg.addColorStop(1,'rgba('+bgCluster.rgb+',0)');
+    ctx.fillStyle=cg;ctx.beginPath();ctx.arc(bx,by,bgCluster.r,0,TAU);ctx.fill();
+  }
+  ctx.restore();
+  // dark dust lanes: the signature look of real nebula photography, cutting across the bright gas
+  if(dustLanes.length){
+    ctx.save();ctx.globalCompositeOperation='multiply';
+    for(const d of dustLanes){
+      const mx=(d.x0+d.x1)/2+px*.4, my=(d.y0+d.y1)/2+py*.4;
+      const nx=-(d.y1-d.y0), ny=(d.x1-d.x0), nl=Math.hypot(nx,ny)||1;
+      const cx2=mx+(nx/nl)*d.bow, cy2=my+(ny/nl)*d.bow;
+      for(let k=0;k<3;k++){
+        const w=d.width*(1-k*.3), a=d.a*(1-k*.28);
+        ctx.strokeStyle='rgba(4,6,14,'+a+')';ctx.lineWidth=w;ctx.lineCap='round';
+        ctx.beginPath();ctx.moveTo(d.x0+px*.4,d.y0+py*.4);ctx.quadraticCurveTo(cx2,cy2,d.x1+px*.4,d.y1+py*.4);ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+  ctx.save();ctx.globalCompositeOperation='screen';
+  for(const s of stars){const tw=.55+.45*Math.sin(elapsed*s.tw+s.x);const rgb=s.rgb||'220,236,255';ctx.fillStyle='rgba('+rgb+','+(s.a*tw)+')';
     const sx=s.x+px*s.r*.12+Math.sin(elapsed*.02)*s.drift, sy=s.y+py*s.r*.12;
     ctx.beginPath();ctx.arc(sx,sy,s.r,0,TAU);ctx.fill();
-    if(s.r>1.1 && tw>.85){ctx.strokeStyle='rgba(255,255,255,'+(s.a*.3)+')';ctx.lineWidth=.7;ctx.beginPath();ctx.moveTo(sx-s.r*2.2,sy);ctx.lineTo(sx+s.r*2.2,sy);ctx.moveTo(sx,sy-s.r*2.2);ctx.lineTo(sx,sy+s.r*2.2);ctx.stroke();}
+    if(s.spike && tw>.72){ctx.strokeStyle='rgba('+rgb+','+(s.a*.32)+')';ctx.lineWidth=.7;ctx.beginPath();ctx.moveTo(sx-s.r*2.6,sy);ctx.lineTo(sx+s.r*2.6,sy);ctx.moveTo(sx,sy-s.r*2.6);ctx.lineTo(sx,sy+s.r*2.6);ctx.stroke();}
   }
   const beam=ctx.createLinearGradient(0,H*.08,W,H*.82);
   beam.addColorStop(0,'rgba('+theme.glow+',.028)'); beam.addColorStop(.35,'rgba(255,255,255,.018)'); beam.addColorStop(1,'rgba('+theme.accent+',0)');
@@ -2908,6 +3070,11 @@ function drawBackground(){
   const vig=ctx.createRadialGradient(W/2,H*.46,Math.min(W,H)*.34,W/2,H*.5,Math.max(W,H)*.78);
   vig.addColorStop(0,'rgba(0,0,0,0)');vig.addColorStop(.7,'rgba(0,0,8,.18)');vig.addColorStop(1,'rgba(0,0,4,.58)');
   ctx.fillStyle=vig;ctx.fillRect(0,0,W,H);
+  // faint sensor-style grain so the field reads as a photograph rather than a flat vector gradient
+  if(Number(SETTINGS.androidSafeMode)<1 && Number(SETTINGS.lowPowerMode)<1){
+    const pat=ensureGrainPattern();
+    if(pat){ctx.save();ctx.globalAlpha=.05*PERF.fx;ctx.fillStyle=pat;ctx.fillRect(0,0,W,H);ctx.restore();}
+  }
 }
 function drawMenuRings(){ctx.save();ctx.globalAlpha=.4;for(let i=0;i<7;i++){ctx.strokeStyle='rgba(90,170,255,'+(.02+i*.006)+')';ctx.lineWidth=1;ctx.beginPath();ctx.arc(W/2,H*.42,Math.min(W,H)*(.14+i*.08),0,TAU);ctx.stroke()}ctx.restore()}
 function drawNebulae(){
@@ -3057,13 +3224,18 @@ function drawOrbit(p,front){
   if(p.owner==='neutral'&&p.count<=0&&!front){ /* still draw faint defenders */ }
   const col=ownerColor(p.owner), n=Math.floor(p.count), drawN=Math.min(n,PERF.maxOrbit);
   if(drawN<=0)return;
+  // Shadow blur is the single most expensive Canvas 2D op; skip it once the scene is busy
+  // instead of only scaling it down, so heavy fights don't tank the frame rate.
+  const useBlur=particles.length<380 && drawN<70;
   ctx.save();ctx.globalCompositeOperation='lighter';
+  if(useBlur){ctx.shadowColor=col;ctx.shadowBlur=(PERF.mobile?3:7)*PERF.fx;}
+  ctx.fillStyle=hexToRgba(col,(p.owner==='neutral'? .5:.92));
   for(let i=0;i<drawN;i++){
     const s=orbitPos(p,i,drawN); if(s.front!==front)continue;
     const pulse=.85+.3*Math.sin(elapsed*3+s.seed);
-    ctx.fillStyle=hexToRgba(col,(p.owner==='neutral'? .5:.92));ctx.shadowColor=col;ctx.shadowBlur=(PERF.mobile?3:7)*PERF.fx;
     ctx.beginPath();ctx.arc(s.x,s.y,(1.3+(i%3)*.12)*pulse,0,TAU);ctx.fill();
   }
+  if(useBlur)ctx.shadowBlur=0;
   ctx.restore();
 }
 
@@ -3195,6 +3367,18 @@ function drawSun(p){
     ctx.strokeStyle=hexToRgba('#eafcff',.06*PERF.fx*shimmer);ctx.lineWidth=.7;ctx.beginPath();ctx.arc(p.x,p.y,growR+4.5,0,TAU);ctx.stroke();
     ctx.restore();
   }
+  if(p.owner==='player' && Number(p.threatPulse||0)>0){
+    // Incoming-threat warning ring: pulses red/orange around a player planet that is
+    // about to take meaningful damage, mirroring the analysis the AI already uses on itself.
+    ctx.save();ctx.globalCompositeOperation='screen';
+    const k=clamp(p.threatPulse/1.4,0,1), pulse=.6+.4*Math.sin(elapsed*9+p.seed);
+    const ringR=p.r+13+pulse*4;
+    ctx.strokeStyle='rgba(255,90,90,'+(.55*k*PERF.fx)+')';ctx.lineWidth=2.2;ctx.setLineDash([7,6]);
+    ctx.beginPath();ctx.arc(p.x,p.y,ringR,0,TAU);ctx.stroke();ctx.setLineDash([]);
+    ctx.strokeStyle='rgba(255,180,90,'+(.28*k*PERF.fx)+')';ctx.lineWidth=1;
+    ctx.beginPath();ctx.arc(p.x,p.y,ringR+5,0,TAU);ctx.stroke();
+    ctx.restore();
+  }
   // outer aura (breathing; dims as vitality fades, flickers when a gray planet is being contested)
   ctx.save();ctx.globalCompositeOperation='screen';
   const auraR=p.r*(p.owner==='neutral'?2.2:3.0+lvl*.35 + glowBoost*.4 + (specialBody?.18:0))*breath;
@@ -3237,14 +3421,18 @@ function drawSun(p){
 function drawParticles(){
   ctx.save();ctx.globalCompositeOperation='lighter';
   const tl=Number(SETTINGS.trailLength||1);
+  // Shadow blur is the priciest Canvas 2D op and here it runs per unit, per frame.
+  // Above a busy-scene threshold, drop it entirely instead of just scaling it down —
+  // that is what actually keeps large battles from tanking the frame rate.
+  const useBlur=particles.length<380;
   for(const u of particles){const col=ownerColor(u.owner);
     if(u.state==='hold'){
-      if(u.selected){ctx.strokeStyle=hexToRgba('#eafcff',.9);ctx.lineWidth=1;ctx.shadowColor=col;ctx.shadowBlur=6*PERF.fx;
+      if(u.selected){ctx.strokeStyle=hexToRgba('#eafcff',.9);ctx.lineWidth=1;if(useBlur){ctx.shadowColor=col;ctx.shadowBlur=6*PERF.fx;}
         ctx.beginPath();ctx.arc(u.x,u.y,3.4,0,TAU);ctx.stroke();}
-      ctx.fillStyle=hexToRgba(col,.95);ctx.shadowColor=col;ctx.shadowBlur=(PERF.mobile?2:5)*PERF.fx;
+      ctx.fillStyle=hexToRgba(col,.95);if(useBlur){ctx.shadowColor=col;ctx.shadowBlur=(PERF.mobile?2:5)*PERF.fx;}else ctx.shadowBlur=0;
       ctx.beginPath();ctx.arc(u.x,u.y,1.8,0,TAU);ctx.fill();
     } else {
-      ctx.strokeStyle=hexToRgba(col,.5*PERF.fx);ctx.lineWidth=PERF.mobile? .8:1.1;ctx.shadowColor=col;ctx.shadowBlur=(PERF.mobile?2:5)*PERF.fx;
+      ctx.strokeStyle=hexToRgba(col,.5*PERF.fx);ctx.lineWidth=PERF.mobile? .8:1.1;if(useBlur){ctx.shadowColor=col;ctx.shadowBlur=(PERF.mobile?2:5)*PERF.fx;}else ctx.shadowBlur=0;
       ctx.beginPath();ctx.moveTo(lerp(u.x,u.px,tl),lerp(u.y,u.py,tl));ctx.lineTo(u.x,u.y);ctx.stroke();
       ctx.fillStyle=hexToRgba(col,.95);ctx.beginPath();ctx.arc(u.x,u.y,u.selected?2.2:1.5,0,TAU);ctx.fill();
       if(u.selected){ctx.strokeStyle=hexToRgba('#eafcff',.8);ctx.lineWidth=1;ctx.beginPath();ctx.arc(u.x,u.y,3.6,0,TAU);ctx.stroke();}
@@ -3525,6 +3713,23 @@ function drawEditor(){
    ============================================================ */
 let installPromptEvent=null;
 function setupPwaManifest(){try{const manifest={name:'Orbitals Afterlight',short_name:'Orbitals',start_url:'.',display:'fullscreen',background_color:'#02040b',theme_color:'#071427',orientation:'landscape',icons:[{src:'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22%3E%3Crect width=%22128%22 height=%22128%22 rx=%2228%22 fill=%22%23071427%22/%3E%3Ccircle cx=%2264%22 cy=%2264%22 r=%2234%22 fill=%22%233fe0ff%22/%3E%3Ccircle cx=%2282%22 cy=%2244%22 r=%228%22 fill=%22%23fff%22/%3E%3C/svg%3E',sizes:'128x128',type:'image/svg+xml'}]};const l=$('manifestLink');if(l)l.href='data:application/manifest+json,'+encodeURIComponent(JSON.stringify(manifest));}catch(_){}}
+let swReady=false;
+function setupServiceWorker(){
+  // Real offline support + a working install prompt on Chrome both require an active
+  // service worker, not just a manifest. Registered from a Blob so the game stays a
+  // single file; only runs on secure origins (SW registration silently fails elsewhere,
+  // e.g. file:// / content:// when opened from an Android file manager).
+  try{
+    if(!('serviceWorker' in navigator))return;
+    if(location.protocol!=='https:' && location.hostname!=='localhost')return;
+    const swSrc="const CACHE='orbitals-afterlight-v1';"+
+      "self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.add(self.registration.scope).catch(()=>{})))});"+
+      "self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});"+
+      "self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;e.respondWith(caches.match(e.request).then(cached=>cached||fetch(e.request).then(res=>{try{const copy=res.clone();caches.open(CACHE).then(c=>c.put(e.request,copy));}catch(_){}return res;}).catch(()=>cached||caches.match(self.registration.scope))));});";
+    const url=URL.createObjectURL(new Blob([swSrc],{type:'application/javascript'}));
+    navigator.serviceWorker.register(url).then(()=>{swReady=true;const p=$('pwaPanel');if(p)p.textContent='PWA activa: hay una copia offline en caché de este dispositivo y el navegador puede ofrecer instalarlo como app. En Android también puede empaquetarse con Capacitor.'}).catch(()=>{});
+  }catch(_){}
+}
 function installApp(){if(installPromptEvent){installPromptEvent.prompt();installPromptEvent=null}else{toast.textContent='Para instalar: menú del navegador > Añadir a pantalla de inicio';toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1800)}}
 function skinUnlocked(s){if(s.id==='cyan')return true;if(s.id==='gold')return constCleared(0);if(s.id==='emerald')return constCleared(1);if(s.id==='violet')return constCleared(3);if(s.id==='crimson')return Object.values(progress._best||{}).filter(b=>b&&b.bosses>0).length>=5;if(s.id==='white')return constCleared(9);return false}
 function renderUnlocks(){
@@ -3738,7 +3943,7 @@ function bind(){
   bindClick('pauseRestartBtn',()=>{hidePausePanel();if(running)buildLevel()});
   bindClick('pauseSafeBtn',enableAndroidSafeMode);
   bindClick('pauseDiagBtn',showDiagnostics);
-  bindClick('pauseMusicBtn',()=>{SETTINGS.musicEnabled=Number(SETTINGS.musicEnabled)>=1?0:1;saveSettings();});
+  bindClick('pauseMusicBtn',()=>{SETTINGS.musicEnabled=Number(SETTINGS.musicEnabled)>=1?0:1;saveSettings();const on=Number(SETTINGS.musicEnabled)>=1;const b=$('pauseMusicBtn');if(b)b.textContent=on?'Música: ON':'Música: OFF';toast.textContent=on?'Música activada':'Música desactivada';toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),900);});
   bindClick('pauseExitBtn',()=>{hidePausePanel();document.body.classList.remove('gameClean');menu.classList.remove('hidden');running=false;setMusicScene('menu');showMenuScreen('galaxy')});
   bindClick('diagRunTestBtn',runSelfTest);
   bindClick('diagCopyBtn',copyErrorLog);
@@ -3765,7 +3970,7 @@ function bind(){
   bindClick('endRetryBtn',()=>startGame());
   bindClick('endMenuBtn',()=>{document.body.classList.remove('gameClean');$('endCard').classList.remove('show');menu.classList.remove('hidden');running=false;setMusicScene('menu');showMenuScreen('map')});
 }
-function init(){setupPwaManifest();loadSettings();loadErrorLog();loadProgress();autoAndroidSafeMode();loadCustomMaps();bind();resize();applyGameSpeedUI();applyGameViewMode();setMusicScene('title');applyLanguage();renderConsts();renderTitleStatus();showFileModeWarning();setTimeout(()=>showOnboarding(false),420);requestAnimationFrame(loop)}
+function init(){setupPwaManifest();setupServiceWorker();loadSettings();loadErrorLog();loadProgress();autoAndroidSafeMode();loadCustomMaps();bind();resize();applyGameSpeedUI();applyGameViewMode();setMusicScene('title');applyLanguage();renderConsts();renderTitleStatus();showFileModeWarning();setTimeout(()=>showOnboarding(false),420);requestAnimationFrame(loop)}
 init();
 })();
 </script>
