@@ -62,10 +62,6 @@ canvas{display:block;width:100vw;height:calc(var(--vh,1vh)*100);height:100dvh;ba
   font-size:clamp(26px,8vw,62px);text-align:center;text-transform:uppercase;text-shadow:0 0 34px rgba(63,224,255,.7);
   opacity:0;transition:opacity .3s;pointer-events:none}
 .toast.show{opacity:1}
-.eventBanner{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 18px);transform:translateX(-50%);z-index:30;pointer-events:none;
-  padding:9px 14px;border-radius:999px;border:1px solid rgba(126,190,255,.22);background:rgba(5,12,28,.52);backdrop-filter:blur(14px);
-  color:#eaf7ff;font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:0;transition:opacity .35s ease, transform .35s ease;box-shadow:0 12px 38px rgba(0,0,0,.28)}
-.eventBanner.show{opacity:1;transform:translateX(-50%) translateY(3px)}
 .transitionVeil{position:fixed;inset:0;z-index:90;pointer-events:none;background:radial-gradient(circle at 50% 45%,rgba(150,220,255,.18),rgba(3,6,18,.68) 72%,rgba(0,0,0,.88));opacity:0;transition:opacity .45s ease}
 .transitionVeil.show{opacity:1}
 .endMedal{font-size:42px;line-height:1;margin:4px 0 7px;text-shadow:0 0 28px rgba(255,218,120,.28)}
@@ -97,12 +93,8 @@ canvas{display:block;width:100vw;height:calc(var(--vh,1vh)*100);height:100dvh;ba
 .seedPanel,.sharePanel{margin-top:12px;padding:12px;border-radius:16px;background:rgba(3,10,24,.38);border:1px solid rgba(126,190,255,.15)}
 .seedRow{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center}
 .seedInput{height:38px;border-radius:999px;border:1px solid rgba(126,190,255,.22);background:rgba(5,12,28,.62);color:#eaf7ff;padding:0 12px;font-size:12px;outline:none}
-.achievementToast{position:fixed;right:calc(env(safe-area-inset-right) + 12px);top:calc(env(safe-area-inset-top) + 106px);z-index:38;max-width:310px;
-  padding:11px 13px;border-radius:16px;border:1px solid rgba(255,210,120,.28);background:rgba(18,12,5,.62);backdrop-filter:blur(14px);color:#ffe3af;
-  box-shadow:0 14px 42px rgba(0,0,0,.34);opacity:0;transform:translateY(-8px);transition:opacity .28s ease,transform .28s ease;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
-.achievementToast.show{opacity:1;transform:translateY(0)}
-@media(max-width:560px){.seedRow{grid-template-columns:1fr}.achievementToast{left:12px;right:12px;top:auto;bottom:calc(env(safe-area-inset-bottom) + 112px);max-width:none}.missionBadge{font-size:8px}}
-@media(max-width:560px){.eventBanner{top:calc(env(safe-area-inset-top) + 10px);max-width:86vw;text-align:center}.endStatsGrid{grid-template-columns:repeat(2,1fr)}.endMedal{font-size:34px}}
+@media(max-width:560px){.seedRow{grid-template-columns:1fr}.missionBadge{font-size:8px}}
+@media(max-width:560px){.endStatsGrid{grid-template-columns:repeat(2,1fr)}.endMedal{font-size:34px}}
 .debug{position:fixed;left:9px;bottom:calc(env(safe-area-inset-bottom) + 52px);z-index:99;max-width:94vw;color:#ffd1d1;
   background:rgba(70,5,8,.82);border:1px solid rgba(255,120,120,.35);border-radius:12px;padding:8px 10px;font-size:11px;display:none;white-space:pre-wrap}
 
@@ -431,8 +423,6 @@ body.gameClean .modeCtl{opacity:.97}
 </div>
 <div class="bottom"><div class="card help" id="help">Toca un planeta tuyo y marca el destino. Hacia un planeta: atacar. Hacia un punto vacío: mover y esperar.</div></div>
 <div class="toast" id="toast"></div>
-<div class="eventBanner" id="eventBanner"></div>
-<div class="achievementToast" id="achievementToast"></div>
 <div class="transitionVeil" id="transitionVeil"></div>
 <div class="fileWarning" id="fileWarning"><button id="fileWarningClose">OK</button><span id="fileWarningText">Aviso: estás abriendo el juego desde un gestor de archivos Android. Para PWA/app, súbelo a hosting HTTPS o empaquétalo con Capacitor.</span></div>
 <div class="pausePanel" id="pausePanel"><div class="pauseCard">
@@ -609,7 +599,7 @@ body.gameClean .modeCtl{opacity:.97}
    ============================================================ */
 const canvas=document.getElementById('game'), ctx=canvas.getContext('2d');
 const $=id=>document.getElementById(id);
-const menu=$('menu'), stats=$('stats'), help=$('help'), title=$('mapTitle'), toast=$('toast'), debug=$('debug'), eventBanner=$('eventBanner'), achievementToast=$('achievementToast'), transitionVeil=$('transitionVeil'), pausePanel=$('pausePanel'), diagnosticPanel=$('diagnosticPanel'), fileWarning=$('fileWarning'), onboardPanel=$('onboardPanel');
+const menu=$('menu'), stats=$('stats'), help=$('help'), title=$('mapTitle'), toast=$('toast'), debug=$('debug'), transitionVeil=$('transitionVeil'), pausePanel=$('pausePanel'), diagnosticPanel=$('diagnosticPanel'), fileWarning=$('fileWarning'), onboardPanel=$('onboardPanel');
 const TAU=Math.PI*2;
 const rnd=(a,b)=>a+Math.random()*(b-a), clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), lerp=(a,b,t)=>a+(b-a)*t;
 function rndFixed(seed,a,b){const x=Math.sin(seed*12.9898)*43758.5453;return a+(x-Math.floor(x))*(b-a)}
@@ -639,6 +629,13 @@ let spaceEvent={kind:null,age:0,life:0,cooldown:0,tick:0,seed:0};
 let battleStats={sent:0,captures:0,lost:0,bosses:0,events:0,peakParticles:0,perfect:true,warnings:0};
 
 const PALETTE={player:'#3fe0ff', red:'#ff5d73', green:'#42f08a', yellow:'#ffd44e', violet:'#b47bff', orange:'#ff9a3d', neutral:'#8392a8'};
+// Solar-system-style variety for unclaimed (grey) planets: before this, every neutral world
+// used the exact same flat grey fill regardless of its "kind" — the kind only nudged a
+// pseudo-random texture pattern. This gives each kind its own base hue so a gas giant, an ice
+// moon, a Mars-like ember world, etc. actually read as different planets at a glance. Owned
+// planets keep their faction colour untouched — that stays the primary "who owns this" signal.
+const NEUTRAL_KIND_COLOR={terra:'#5fb0a0',gas:'#d9a860',ice:'#bfe6f2',ember:'#c9704a',ring:'#e0c98a',ocean:'#4a8fc2',crystal:'#b98fe0',fungal:'#8fd66a'};
+function neutralPlanetColor(kind){return NEUTRAL_KIND_COLOR[kind]||PALETTE.neutral}
 const PLAYER_SKINS=[
   {id:'cyan',name:'Azul Afterlight',color:'#3fe0ff',req:'Inicio'},
   {id:'gold',name:'Oro Solar',color:'#ffd44e',req:'Completa galaxia 1'},
@@ -1396,7 +1393,10 @@ function decorateProceduralLevel(lvl,g,l){
     const boss=hostileBoss||([...lvl.nodes].reverse().find(n=>n[2]!=='player'));
     if(boss){
       boss[3]='l';
-      boss[5]=g>=9?'wyrm':(g>=7?'leviathan':(g>=5?'colossus':(g>=3?'citadel':'ark')));
+      // Boss kind drives which archetype drawBossArchetype() renders (ship/robot/alien/crystal
+      // planet) — staggered across the campaign so all four actually show up: early ships,
+      // a crystalline world mid-campaign, a mechanical titan, then alien horrors at the end.
+      boss[5]=g>=9?'wyrm':(g>=7?'leviathan':(g>=5?'colossus':(g>=3?'crystal':'ark')));
       boss[6]=Math.max(Number(boss[6])||1,(g===0?1.34:1.75+g*.06));
       boss[7]=Math.max(Number(boss[7])||1,(g===0?1.08:1.18+Math.min(.18,g*.02)));
       boss[8]=1;
@@ -1666,10 +1666,11 @@ const ACHIEVEMENTS=[
   ['singularity','Singularidad domada','Completa la galaxia 10',()=>constCleared(9)],
   ['daily','Rutina orbital','Juega un desafío con semilla diaria',()=>String(currentSkirmishSeed||'').includes('DAILY')]
 ];
-function showAchievement(a){if(!achievementToast)return;achievementToast.innerHTML='LOGRO DESBLOQUEADO<br><b>'+a[1]+'</b><br><span>'+a[2]+'</span>';achievementToast.classList.add('show');setTimeout(()=>achievementToast.classList.remove('show'),2600)}
 function checkAchievements(){
+  // Achievements still unlock and are visible in the Desbloqueos/gallery screen — the
+  // on-screen popup announcing them mid-game has been removed.
   progress._ach=progress._ach||{};
-  for(const a of ACHIEVEMENTS){try{if(!progress._ach[a[0]]&&a[3]()){progress._ach[a[0]]=Date.now();showAchievement(a)}}catch(_){}}
+  for(const a of ACHIEVEMENTS){try{if(!progress._ach[a[0]]&&a[3]()){progress._ach[a[0]]=Date.now();}}catch(_){}}
   saveProgress();
 }
 function recordBest(c,l,stars,missionOk,score,style){
@@ -1718,7 +1719,7 @@ function exportDiagnosticReport(){downloadBlob('orbitals-afterlight-beta50-diagn
    WORLD BUILD
    ============================================================ */
 let constIndex=0, levelIndex=0, diffIndex=1;
-const SPREAD=1.34;  // push planets apart; camera auto-fits the whole field
+const SPREAD=1.55;  // push planets apart; camera auto-fits the whole field
 function norm(nx,ny){const s=Math.min(W,H)*0.5*SPREAD; return {x:W/2+nx*s, y:H/2+ny*s}}
 function startLevelForSize(size){return size==='l'?3:(size==='m'?2:1)}
 function hpForLevel(level){return clamp(Math.round(level),1,3)*10}
@@ -1827,7 +1828,7 @@ function buildLevel(){
 }
 function separateNodes(){
   if(nodes.length<2)return;
-  const minGap=clamp(Math.min(W,H)*0.068,28,74);
+  const minGap=clamp(Math.min(W,H)*0.09,34,92);
   for(let it=0;it<24;it++){ let moved=false;
     for(let i=0;i<nodes.length;i++)for(let j=i+1;j<nodes.length;j++){
       const a=nodes[i],b=nodes[j]; let dx=b.bx-a.bx,dy=b.by-a.by,d=Math.hypot(dx,dy)||.01;
@@ -1870,7 +1871,6 @@ function updateNodePositions(force){
    SIMULATION
    ============================================================ */
 function clearTutorialTimers(){for(const id of tutorialTimers)clearTimeout(id);tutorialTimers=[]}
-function queueToast(msg,delay=0,duration=1150){const id=setTimeout(()=>{if(!running||gameOver)return;toast.textContent=msg;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),duration)},delay);tutorialTimers.push(id)}
 function resetBattleStats(){
   battleStats={sent:0,captures:0,lost:0,bosses:0,events:0,peakParticles:0,perfect:true,warnings:0};
 }
@@ -1901,12 +1901,11 @@ function rewardText(win,stars,lvl){
   return 'Sector asegurado';
 }
 function showMobileOnboarding(){
+  // No on-screen popups during play — kept only to stop writing the _mobileTutor50 flag
+  // again on every level start for players who already have it set from an older save.
   if(progress._mobileTutor50)return;
   try{if(!(matchMedia&&matchMedia('(pointer: coarse)').matches))return}catch(_){return}
   progress._mobileTutor50=1;saveProgress();
-  queueToast('Móvil: toca planeta azul',700,1300);
-  queueToast('Toca destino para enviar unidades',2300,1500);
-  queueToast('Abajo tienes velocidad y modo táctico',4200,1700);
 }
 function focusBossIntro(){
   const lvl=CONSTS[constIndex]?.levels?.[levelIndex];
@@ -1916,18 +1915,15 @@ function focusBossIntro(){
   setTimeout(()=>{if(running&&!gameOver){focusCameraOn(boss.x,boss.y,Math.max(.78,Math.min(1.08,camera.zoom*1.08)))}},650);
 }
 function tutorialPulse(){
+  // Every popup/toast this used to queue (step-by-step tutorial, boss name+ability reveal)
+  // has been removed — nothing should appear on the game screen during play. The bottom
+  // help bar still gets the first-level tutorial line since it's a static status strip,
+  // not a popup.
   clearTutorialTimers();
   const en=Number(SETTINGS.language)>=1;
   const firstLevel=(constIndex===0&&levelIndex===0);
-  const boss=nodes.find(n=>n.boss&&isHostile(n.owner));
   if(firstLevel){
     help.textContent=en?'Tutorial: tap your blue planet, then tap the gray planet. Use x1/x2/x3 below. Tactical mode shows the HUD.':'Tutorial: toca tu planeta azul y luego el planeta gris. Usa x1/x2/x3 abajo. El modo táctico muestra el HUD.';
-    queueToast(en?'1/3 Select your blue planet':'1/3 Selecciona tu planeta azul',380,1200);
-    queueToast(en?'2/3 Tap a gray or enemy planet to send a wave':'2/3 Toca un planeta gris o enemigo para enviar una oleada',1880,1450);
-    queueToast(en?'3/3 Use the speed buttons below. Tactical mode shows more info.':'3/3 Usa los botones de velocidad de abajo. El modo táctico muestra más info.',3880,1900);
-  }
-  if(boss){
-    queueToast((boss.bossName||'JEFE').toUpperCase()+' · '+bossAbilityName(boss).toUpperCase(), firstLevel?6200:680, 1550);
   }
 }
 
@@ -2359,7 +2355,6 @@ function hitPlanet(t,u){
           cameraPunch(wasBoss?2.2:1.35,wasBoss?.6:.42);
           bossEffects.push({type:'captureFlare',x:t.x,y:t.y,owner:u.owner,age:0,life:wasBoss?1.6:1.1,maxR:t.r*(wasBoss?5.4:3.6)});
         }
-        if(wasBoss){toast.textContent=(t.bossName||'JEFE')+' TOMADO';toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1100)}
         if(u.owner==='player')help.textContent=en?'Captured. It produces for you now.':'Capturado. Ya produce para ti.';
       }
     } else {
@@ -2373,7 +2368,6 @@ function hitPlanet(t,u){
       noteCapture(t,u.owner,oldOwner,wasBoss);
       impactBurst(t.x,t.y,oldOwner==='player'?'#ff5d73':'#9fb0c8',wasBoss?2.6:1.5); burst(t.x,t.y,'#9fb0c8',wasBoss?38:24,wasBoss?.94:.68); sfx('capture'); haptic(wasBoss?[22,34,22]:14);
       if(u.owner==='player' && (wasBoss||wasLarge))cameraPunch(wasBoss?1.6:.9,wasBoss?.5:.34);
-      if(wasBoss){toast.textContent=(t.bossName||'JEFE')+' NEUTRALIZADO';toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1100)}
       if(u.owner==='player')help.textContent=en?'Knocked to neutral — spend 10 more to claim it.':'Pasó a gris: gasta otros 10 para hacerlo tuyo.';
     }
   }
@@ -2475,24 +2469,6 @@ function bossSkillIdForName(name,kind,g){
     default: return bossAbilityTypeForKind(kind);
   }
 }
-function bossAbilityName(p){
-  const skill=(p&&p.bossSkill)||bossAbilityTypeForKind((p&&p.kind)||'terra');
-  switch(skill){
-    case 'aegis': return 'Égida estelar';
-    case 'bulwark': return 'Bastión orbital';
-    case 'stampede': return 'Estampida del borde';
-    case 'triarch': return 'Mandato triarca';
-    case 'flare': return 'Corona incandescente';
-    case 'rift': return 'Pliegue roto';
-    case 'maelstrom': return 'Maelstrom nebular';
-    case 'armada': return 'Armada circular';
-    case 'eclipse': return 'Eclipse total';
-    case 'omega': return 'Singularidad omega';
-    case 'gravity': return 'Gravedad viviente';
-    case 'nova': return 'Nova imperial';
-    default: return 'Mandato de guerra';
-  }
-}
 function bossAbilityCooldown(p){
   const press=campaignPressure(constIndex,levelIndex);
   const skill=(p&&p.bossSkill)||bossAbilityTypeForKind((p&&p.kind)||'terra');
@@ -2542,8 +2518,6 @@ function triggerBossAbility(p){
   if(!p||!p.boss||p.owner==='neutral')return;
   const press=campaignPressure(constIndex,levelIndex), skill=(p.bossSkill||bossSkillIdForName(p.bossName,p.kind,constIndex));
   p.bossSkill=skill; p.abilityCd=bossAbilityCooldown(p); p.abilityWarned=false; p.abilityPulse=1.55; p.hitT=Math.max(p.hitT||0,1.2);
-  const title=(p.bossName||'JEFE').toUpperCase();
-  let label=bossAbilityName(p).toUpperCase();
   if(skill==='aegis'){
     bossBoostAllies(p,3+p.level+Math.floor(press*5),1.1+press*.15);
     bossEffects.push({type:'aegis',x:p.x,y:p.y,owner:p.owner,age:0,life:1.3,maxR:p.r*3.8});
@@ -2613,8 +2587,6 @@ function triggerBossAbility(p){
     screenShake(2.8,.2);
   }
   sfx('boss',p.level||0);
-  toast.textContent=title+' · '+label;
-  toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),1050);
 }
 function updateBossAbilities(dt){
   for(const p of nodes){
@@ -2625,8 +2597,6 @@ function updateBossAbilities(dt){
       p.bossPhase2=true; p.abilityCd=Math.min(p.abilityCd||99,2.1); p.prod*=1.18; p.glowBoost=Math.max(p.glowBoost,1.28);
       bossEffects.push({type:'phase',x:p.x,y:p.y,owner:p.owner,age:0,life:1.7,maxR:p.r*4.8});
       sfx('phase'); screenShake(5.4,.34); haptic([18,26,18]);
-      toast.textContent=(p.bossName||'JEFE').toUpperCase()+' · FASE 2';
-      toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),1200);
     }
     p.abilityCd=(p.abilityCd||bossAbilityCooldown(p))-(p.bossPhase2?dt*1.16:dt);
     if(p.abilityCd<=0)triggerBossAbility(p);
@@ -2687,7 +2657,7 @@ function updateSurvivalMode(dt){
     if(leader&&leader!=='neutral')target=nodes.filter(n=>n.owner===leader).sort((a,b)=>(b.count||0)-(a.count||0))[0];
     if(!target)target=playerPlanets.sort((a,b)=>Math.hypot(a.x-src.x,a.y-src.y)-Math.hypot(b.x-src.x,b.y-src.y))[0];
     const reserve=Math.max(8,aiReserveFor(src)-4), amount=Math.min(Math.floor(src.count-reserve),Math.floor(12+survivalState.wave*4+elapsed/32));
-    if(target&&amount>0){launchFleet(src,target,null,amount,reserve);balance.attacks++;balance.lastWave=amount;balance.totalWave+=amount;toast.textContent='OLEADA '+survivalState.wave;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),850)}
+    if(target&&amount>0){launchFleet(src,target,null,amount,reserve);balance.attacks++;balance.lastWave=amount;balance.totalWave+=amount;}
   }
 }
 function neutralTargetsFor(owner){
@@ -2920,7 +2890,6 @@ function end(win){
   if(gameOver)return; gameOver=true;
   const lvl=CONSTS[constIndex]?.levels?.[levelIndex];
   const stars=win?starsForTime():0, mission=missionForLevel(constIndex,levelIndex,lvl), missionOk=win&&missionComplete(mission,battleStats,elapsed,lvl), style=win?victoryStyle():'Derrota', score=win?victoryScore(stars,missionOk):0;
-  toast.textContent=win?T('win'):T('lose'); toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),1600);
   const medal=win?medalFor(stars):'◇';
   $('endMedal').textContent=medal;
   const statGrid=$('endStatsGrid'), reward=$('endRewardLine');
@@ -2932,7 +2901,6 @@ function end(win){
       const boss=nodes.find(n=>n.boss)||nodes[Math.floor(nodes.length/2)];
       if(boss)bossEffects.push({type:'galaxyClear',x:boss.x,y:boss.y,owner:'player',age:0,life:2.0,maxR:Math.max(W,H)*.38});
       if(reward)reward.textContent+=' · '+((GALAXY_LORE[constIndex]&&GALAXY_LORE[constIndex][2])||'Galaxia liberada');
-      if(eventBanner){eventBanner.textContent='GALAXIA LIBERADA';eventBanner.classList.add('show');setTimeout(()=>eventBanner.classList.remove('show'),1800)}
       if(transitionVeil){setTimeout(()=>transitionVeil.classList.add('show'),350);setTimeout(()=>transitionVeil.classList.remove('show'),1200)}
       screenShake(5.2,.42); cameraPunch(2.6,.75);
     }
@@ -3580,10 +3548,27 @@ function planetPath(p,r,soft){
   }
   ctx.closePath();
 }
+function drawPlanetRingSystem(p,tint,front){
+  // A real Saturn-style ring, drawn outside the planet's clip so it visibly extends past the
+  // disc — split into a back pass (drawn before the body, so the sphere occludes its middle)
+  // and a front pass (a bright near-edge arc drawn after, so the ring reads as wrapping around
+  // the planet rather than floating flat behind it).
+  const tilt=.34+Math.sin(p.seed*.7)*.06, ry=p.r*.42;
+  ctx.save();ctx.globalCompositeOperation='screen';
+  for(let k=0;k<3;k++){
+    const rx=p.r*(1.55+k*.32);
+    ctx.strokeStyle=hexToRgba(tint,(front?.55:.3)-k*.07);
+    ctx.lineWidth=p.r*(front?.09:.07);
+    ctx.beginPath();
+    if(front)ctx.ellipse(p.x,p.y,rx,ry+k*.12*p.r,tilt,-.28,Math.PI+.28);
+    else ctx.ellipse(p.x,p.y,rx,ry+k*.12*p.r,tilt,0,TAU);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
 function drawPlanetOrganicTexture(p,tint,col,vitality,flicker){
   ctx.save();
   planetPath(p,p.r*.985,false);ctx.clip();
-  const type=Math.floor((p.seed||1)*.031)%6;
   const kind=p.kind||'terra';
   const alpha=(p.owner==='neutral'?.12:.15)*(.55+vitality*.45)*PERF.fx;
   ctx.globalCompositeOperation='screen';
@@ -3609,30 +3594,132 @@ function drawPlanetOrganicTexture(p,tint,col,vitality,flicker){
   } else if(kind==='wyrm'){
     ctx.strokeStyle=hexToRgba('#ffffff',alpha*.6); ctx.lineWidth=Math.max(.9,p.r*.04); ctx.beginPath(); ctx.moveTo(p.x-p.r*.45,p.y-p.r*.15); ctx.quadraticCurveTo(p.x,p.y-p.r*.46,p.x+p.r*.48,p.y+p.r*.1); ctx.stroke();
     for(let k=0;k<5;k++){ ctx.fillStyle=hexToRgba(tint,alpha*(.54-k*.08)); ctx.beginPath(); ctx.ellipse(p.x-p.r*.26+k*p.r*.14,p.y+Math.sin(k*.8+p.seed*.01)*p.r*.08,p.r*.09,p.r*.05,.12,0,TAU); ctx.fill(); }
-  } else if(type===0||type===5){
+  } else if(kind==='gas'){
+    // Jupiter-style horizontal bands — always this pattern for 'gas', not a random pick,
+    // so the same kind reliably reads the same way across every planet that has it.
     for(let k=-2;k<=2;k++){
       ctx.strokeStyle=hexToRgba('#ffffff',alpha*(.45-Math.abs(k)*.055));ctx.lineWidth=Math.max(.7,p.r*.045);
       ctx.beginPath();ctx.ellipse(p.x,p.y+k*p.r*.18,p.r*(.72+k*.025),p.r*(.11+Math.abs(k)*.018),Math.sin(p.seed+k)*.35,0,TAU);ctx.stroke();
     }
-  } else if(type===1){
-    for(let k=0;k<5;k++){const a=(p.seed+k*1.7)%TAU, rr=p.r*(.18+.11*k);ctx.fillStyle=hexToRgba('#ffffff',alpha*(.55-k*.055));ctx.beginPath();ctx.arc(p.x+Math.cos(a)*rr,p.y+Math.sin(a*1.3)*rr*.65,p.r*(.12+.025*(k%2)),0,TAU);ctx.fill();}
-  } else if(type===2){
+  } else if(kind==='ice'){
+    // pale crater clusters
+    for(let k=0;k<5;k++){const a=(p.seed+k*1.7)%TAU, rr=p.r*(.18+.11*k);ctx.fillStyle=hexToRgba('#ffffff',alpha*(.6-k*.06));ctx.beginPath();ctx.arc(p.x+Math.cos(a)*rr,p.y+Math.sin(a*1.3)*rr*.65,p.r*(.12+.025*(k%2)),0,TAU);ctx.fill();}
+  } else if(kind==='ocean'||kind==='terra'){
+    // coastline/current veins — terra adds a scatter of "continent" blotches on top
     ctx.globalCompositeOperation='multiply';ctx.strokeStyle='rgba(0,0,0,.13)';ctx.lineWidth=Math.max(.8,p.r*.035);
     for(let k=0;k<4;k++){const a=(p.seed*.01+k*1.9)%TAU;ctx.beginPath();ctx.moveTo(p.x+Math.cos(a)*p.r*.05,p.y+Math.sin(a)*p.r*.05);ctx.quadraticCurveTo(p.x+Math.cos(a+.9)*p.r*.42,p.y+Math.sin(a+.9)*p.r*.34,p.x+Math.cos(a+1.6)*p.r*.8,p.y+Math.sin(a+1.6)*p.r*.72);ctx.stroke();}
-  } else if(type===3){
+    if(kind==='terra'){
+      ctx.globalCompositeOperation='screen';
+      for(let k=0;k<5;k++){const a=(p.seed*.008+k*1.4)%TAU, rr=p.r*(.2+.1*k);ctx.fillStyle=hexToRgba('#8fe0b0',alpha*(.5-k*.05));ctx.beginPath();ctx.ellipse(p.x+Math.cos(a)*rr,p.y+Math.sin(a)*rr*.7,p.r*.16,p.r*.09,a,0,TAU);ctx.fill();}
+    }
+  } else if(kind==='ring'){
     ctx.strokeStyle=hexToRgba(tint,alpha*.9);ctx.lineWidth=Math.max(.7,p.r*.04);
     for(let k=0;k<3;k++){ctx.beginPath();ctx.ellipse(p.x,p.y,p.r*(.34+k*.19),p.r*(.10+k*.045),p.seed*.001+k*.7,0,TAU);ctx.stroke();}
   } else {
+    // ember and any unrecognised kind: scattered glow spots (lava fissures on ember)
     for(let k=0;k<7;k++){const a=(p.seed*.004+k*2.22)%TAU, rr=p.r*(.18+((k*17)%31)/43);ctx.fillStyle=hexToRgba(tint,alpha*.65);ctx.beginPath();ctx.arc(p.x+Math.cos(a)*rr,p.y+Math.sin(a)*rr*.8,p.r*(.055+.02*(k%3)),0,TAU);ctx.fill();}
   }
   ctx.restore();
+}
+// Boss worlds get a bold, unmistakable silhouette on top of the planet body instead of the
+// same subtle abstract texture every other planet uses — a patrolling dreadnought, a plated
+// mechanical titan, a curling bio-luminescent creature, or a crystal giant, depending on the
+// boss's kind. Only ever drawn for the single true p.boss planet in a level (escorts share the
+// kind but not the boss flag), so the extra cost here is negligible.
+function drawBossShip(p,tint){
+  const orbitR=p.r*1.85, ang=elapsed*.15+p.seed;
+  const cx=p.x+Math.cos(ang)*orbitR, cy=p.y+Math.sin(ang)*orbitR*.55;
+  const hullAng=ang+Math.PI/2, scale=p.r*.62;
+  const hull=[[2.3,0],[1.2,.55],[-1.7,.7],[-2.5,.25],[-2.5,-.25],[-1.7,-.7],[1.2,-.55]];
+  const ca=Math.cos(hullAng),sa=Math.sin(hullAng);
+  ctx.save();
+  // The hull itself is a solid opaque silhouette (normal blend, so it actually reads as a dark
+  // ship instead of vanishing under the boss's glow); only the engine/bridge lights are additive.
+  ctx.fillStyle='rgba(9,14,26,.96)';
+  ctx.beginPath();
+  hull.forEach(([lx,ly],i)=>{ const wx=cx+(lx*ca-ly*sa)*scale, wy=cy+(lx*sa+ly*ca)*scale; if(i===0)ctx.moveTo(wx,wy);else ctx.lineTo(wx,wy); });
+  ctx.closePath();ctx.fill();
+  ctx.strokeStyle=hexToRgba(tint,.95);ctx.lineWidth=1.6;ctx.stroke();
+  // spine line + a few hull lights so the silhouette doesn't read as a flat blank wedge
+  ctx.strokeStyle=hexToRgba(tint,.4);ctx.lineWidth=.9;
+  ctx.beginPath();ctx.moveTo(cx+(-2.2*ca)*scale,cy+(-2.2*sa)*scale);ctx.lineTo(cx+(2.1*ca)*scale,cy+(2.1*sa)*scale);ctx.stroke();
+  ctx.globalCompositeOperation='lighter';
+  for(let k=0;k<3;k++){
+    const lx=-1.4+k*1.1, wx=cx+(lx*ca)*scale, wy=cy+(lx*sa)*scale;
+    ctx.fillStyle=hexToRgba('#ffffff',.55);ctx.beginPath();ctx.arc(wx,wy,scale*.045,0,TAU);ctx.fill();
+  }
+  const tailX=cx-2.5*ca*scale, tailY=cy-2.5*sa*scale;
+  ctx.fillStyle=hexToRgba(tint,.8);ctx.shadowColor=tint;ctx.shadowBlur=10*PERF.fx;
+  ctx.beginPath();ctx.arc(tailX,tailY,scale*.22,0,TAU);ctx.fill();ctx.shadowBlur=0;
+  const noseX=cx+2.3*ca*scale, noseY=cy+2.3*sa*scale;
+  ctx.fillStyle='rgba(255,255,255,.85)';ctx.beginPath();ctx.arc(noseX,noseY,scale*.1,0,TAU);ctx.fill();
+  ctx.restore();
+}
+function drawBossRobot(p,tint){
+  ctx.save();ctx.globalCompositeOperation='lighter';
+  for(let k=0;k<3;k++){
+    const rr=p.r*(1.15+k*.22), spin=elapsed*(k%2?.22:-.16)+p.seed+k;
+    ctx.strokeStyle=hexToRgba('#dfe8f2',.5-k*.1);ctx.lineWidth=2.2;
+    ctx.setLineDash([p.r*.28,p.r*.14]);ctx.lineDashOffset=-spin*rr;
+    ctx.beginPath();ctx.arc(p.x,p.y,rr,0,TAU);ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  for(let k=0;k<6;k++){
+    const a=(k/6)*TAU+p.seed*.02;
+    const x1=p.x+Math.cos(a)*p.r*1.05, y1=p.y+Math.sin(a)*p.r*1.05;
+    const x2=p.x+Math.cos(a)*p.r*1.55, y2=p.y+Math.sin(a)*p.r*1.55;
+    ctx.strokeStyle=hexToRgba(tint,.7);ctx.lineWidth=1.6;
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.85)';ctx.beginPath();ctx.arc(x2,y2,1.8,0,TAU);ctx.fill();
+  }
+  const eyePulse=.7+.3*Math.sin(elapsed*2+p.seed);
+  ctx.fillStyle=hexToRgba(tint,.9*eyePulse);ctx.shadowColor=tint;ctx.shadowBlur=14*PERF.fx;
+  ctx.beginPath();ctx.arc(p.x,p.y,p.r*.22,0,TAU);ctx.fill();ctx.shadowBlur=0;
+  ctx.fillStyle='rgba(255,255,255,.9)';ctx.beginPath();ctx.arc(p.x,p.y,p.r*.09,0,TAU);ctx.fill();
+  ctx.restore();
+}
+function drawBossAlien(p,tint){
+  ctx.save();ctx.globalCompositeOperation='lighter';
+  const n=5;
+  for(let k=0;k<n;k++){
+    const a=(k/n)*TAU+p.seed*.01+elapsed*.05;
+    const baseX=p.x+Math.cos(a)*p.r*.92, baseY=p.y+Math.sin(a)*p.r*.92;
+    const midA=a+Math.sin(elapsed*.6+k)*.35, midX=p.x+Math.cos(midA)*p.r*1.7, midY=p.y+Math.sin(midA)*p.r*1.7;
+    const tipA=midA+Math.sin(elapsed*.8+k*1.3)*.5, tipX=p.x+Math.cos(tipA)*p.r*2.3, tipY=p.y+Math.sin(tipA)*p.r*2.3;
+    ctx.strokeStyle=hexToRgba(tint,.55);ctx.lineWidth=p.r*.09;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(baseX,baseY);ctx.quadraticCurveTo(midX,midY,tipX,tipY);ctx.stroke();
+    ctx.fillStyle=hexToRgba('#ffffff',.6+.2*Math.sin(elapsed*3+k));ctx.shadowColor=tint;ctx.shadowBlur=8*PERF.fx;
+    ctx.beginPath();ctx.arc(tipX,tipY,p.r*.07,0,TAU);ctx.fill();ctx.shadowBlur=0;
+  }
+  ctx.lineCap='butt';
+  ctx.restore();
+}
+function drawBossCrystal(p,tint){
+  ctx.save();ctx.globalCompositeOperation='lighter';
+  const n=7;
+  for(let k=0;k<n;k++){
+    const a=(k/n)*TAU+p.seed*.015, len=p.r*(1.5+(k%3)*.22);
+    const bx1=p.x+Math.cos(a-.09)*p.r*.85, by1=p.y+Math.sin(a-.09)*p.r*.85;
+    const bx2=p.x+Math.cos(a+.09)*p.r*.85, by2=p.y+Math.sin(a+.09)*p.r*.85;
+    const tx=p.x+Math.cos(a)*len, ty=p.y+Math.sin(a)*len;
+    ctx.fillStyle=hexToRgba(k%2?'#ffffff':tint,.5);
+    ctx.beginPath();ctx.moveTo(bx1,by1);ctx.lineTo(tx,ty);ctx.lineTo(bx2,by2);ctx.closePath();ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.6)';ctx.lineWidth=.8;ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawBossArchetype(p,tint){
+  if(p.kind==='ark'||p.kind==='citadel')drawBossShip(p,tint);
+  else if(p.kind==='colossus')drawBossRobot(p,tint);
+  else if(p.kind==='crystal')drawBossCrystal(p,tint);
+  else drawBossAlien(p,tint); // leviathan, fungal, wyrm
 }
 function drawSun(p){
   const col=ownerColor(p.owner), lvl=p.level, breath=.92+.08*Math.sin(elapsed*1.1+p.seed);
   // No numbers or life rings: only planet, ships and a very subtle growth halo when growth is possible.
   const vitality=1;
   const flicker=0;
-  const tint=(p.owner==='neutral'&&p.claim)?ownerColor(p.claim):col;
+  const tint=(p.owner==='neutral'&&p.claim)?ownerColor(p.claim):(p.owner==='neutral'?neutralPlanetColor(p.kind):col);
   const glowBoost=Number(p.glowBoost||0);
   const specialBody=(p.kind==='ark'||p.kind==='leviathan'||p.kind==='colossus'||p.kind==='crystal'||p.kind==='fungal'||p.kind==='citadel'||p.kind==='wyrm');
   const abilityPulse=Math.max(0,Number(p.abilityPulse||0));
@@ -3678,13 +3765,18 @@ function drawSun(p){
     cor.addColorStop(0,hexToRgba(col,.18*vitality*PERF.fx));cor.addColorStop(1,hexToRgba(col,0));
     ctx.fillStyle=cor;ctx.beginPath();ctx.arc(p.x,p.y,p.r*1.5,0,TAU);ctx.fill();}
   ctx.restore();
+  if(p.kind==='ring')drawPlanetRingSystem(p,tint,false);
   // body — a wounded planet visibly dims and darkens at its own surface, no separate indicator
   const dim=lerp(-.5,0,vitality);
   const g=ctx.createRadialGradient(p.x-p.r*.36,p.y-p.r*.42,1,p.x,p.y,p.r*1.32);
   if(p.owner==='neutral'){
+    // Unclaimed planets used to always fill with a flat grey here regardless of kind — the
+    // kind colour only showed up in the aura/rim. Using it for the body gradient too is what
+    // actually makes a "gas giant" look tan/banded and a "ember world" look rust-red instead
+    // of every unclaimed planet reading as the same grey rock.
     g.addColorStop(0,'rgba(226,234,244,.96)');
-    g.addColorStop(.5, flicker>0.02?shade(tint,-.15):'rgba(122,134,152,.85)');
-    g.addColorStop(1,'rgba(28,34,46,.96)');
+    g.addColorStop(.5,shade(tint,-.08));
+    g.addColorStop(1,shade(tint,-.62));
   } else {
     g.addColorStop(0,'rgba(255,255,255,'+(0.99*(.55+vitality*.45)).toFixed(3)+')');
     g.addColorStop(.2,shade(col,.2+dim*.3));
@@ -3702,6 +3794,8 @@ function drawSun(p){
   // rim — the planet's own light brightens with vitality / contested flicker; upgrade tier reads through size and aura alone
   ctx.strokeStyle=hexToRgba('#dff7ff',.42*(p.owner==='neutral'?1:.6+vitality*.4)+glowBoost*.08);ctx.lineWidth=1;planetPath(p,p.r-.4,false);ctx.stroke();
   ctx.strokeStyle=hexToRgba(tint,(p.owner==='neutral'?(.18+flicker*.5):(.2+vitality*.32))+glowBoost*.12);ctx.lineWidth=2+(glowBoost?0.6:0);planetPath(p,p.r+1.2,false);ctx.stroke();
+  if(p.kind==='ring')drawPlanetRingSystem(p,tint,true);
+  if(p.boss)drawBossArchetype(p,tint);
   ctx.restore();
 }
 // Each faction reads as a distinct silhouette, not just a colour, so fights stay legible when
