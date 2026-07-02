@@ -1009,7 +1009,17 @@ function scheduleStep(stepTime){
 }
 function musicSchedulerTick(){
   if(!musicOn||!audioCtx)return;
-  while(nextStepTime<audioCtx.currentTime+SCHED_AHEAD){ scheduleStep(nextStepTime); stepIndex++; nextStepTime+=stepDur }
+  // This runs on its own setTimeout chain, outside the game loop's try/catch in loop().
+  // Without a local try/catch, one exception here would skip the reschedule below and
+  // silently kill music forever with no visible error — guard it and keep the chain alive.
+  try{
+    while(nextStepTime<audioCtx.currentTime+SCHED_AHEAD){ scheduleStep(nextStepTime); stepIndex++; nextStepTime+=stepDur }
+  }catch(e){
+    try{ logError(e,'music'); }catch(_){}
+    // A broken piece/step state could keep throwing every tick; drop it and let the next
+    // tick start a fresh piece rather than resurrecting the same bad state.
+    curPiece=null;
+  }
   schedTimer=setTimeout(musicSchedulerTick,SCHED_INTERVAL_MS);
 }
 function makePad(freq,vol,type,dest){
@@ -1838,11 +1848,13 @@ function screenShake(power=3,duration=.24){if(Number(SETTINGS.reducedFlashes)>=1
 // large/boss captures, galaxy clears. Kept rare on purpose so it still reads as special.
 function cameraPunch(power=1,duration=.5){if(Number(SETTINGS.reducedFlashes)>=1){power*=.4;duration*=.7}camPunch.amt=Math.max(camPunch.amt,power);camPunch.t=Math.max(camPunch.t,duration);camPunch.d=Math.max(camPunch.d,duration)}
 function impactBurst(x,y,col,power=1){
-  burst(x,y,'#ffffff',7+power*4,.22+power*.08);
-  burst(x,y,col,10+power*8,.28+power*.10);
-  burst(x,y,shade(col,.16),15+power*11,.36+power*.12);
-  if(power>1.15)burst(x,y,'#ffb8c4',6+power*4,.24+power*.08);
-  screenShake(1.3+power*2.4,.14+power*.08);
+  // Routine ship-vs-planet hits happen constantly in a real fight, so they need to stay
+  // subtle — only a genuinely big moment (large/boss capture, power well above 1) should
+  // feel heavy. A power^1.8 curve keeps small hits quiet while still letting big ones land.
+  burst(x,y,'#ffffff',5+power*2.6,.18+power*.06);
+  burst(x,y,col,7+power*5,.22+power*.08);
+  if(power>1.15)burst(x,y,shade(col,.16),9+power*6,.28+power*.09);
+  screenShake(Math.pow(power,1.8)*1.15,.10+power*.05);
 }
 function applyGameViewMode(){
   const mode=((SETTINGS.gameViewMode||'immersive')==='tactical')?'tactical':'immersive';
@@ -2502,7 +2514,13 @@ function updateBossAbilities(dt){
   }
 }
 function updateExplosions(dt){for(let i=explosions.length-1;i>=0;i--){explosions[i].age+=dt;if(explosions[i].age>=explosions[i].life)explosions.splice(i,1)}}
-function burst(x,y,col,r,life){explosions.push({x,y,col,r,life,age:0,seed:rnd(0,1e4),n:Math.floor(rnd(6,14))})}
+function burst(x,y,col,r,life){
+  // Hard cap on concurrent explosion effects: each one costs a gradient fill, two stroke
+  // arcs and several fragments every frame, so an uncapped array is a real worst-case
+  // slowdown during a big battle. Once at the cap, drop the newest (least noticeable) hits.
+  if(explosions.length>=(PERF.mobile?70:140))return;
+  explosions.push({x,y,col,r,life,age:0,seed:rnd(0,1e4),n:Math.floor(rnd(6,14))})
+}
 
 /* ----- AI ----- */
 function sideStrength(o){let s=0,p=0;for(const n of nodes)if(n.owner===o){p++;s+=n.count}for(const u of particles)if(u.owner===o)s++;return {p,s}}
@@ -3188,9 +3206,9 @@ function drawBossEffects(){
       // not the galaxy palette, so it reads as "you did this" rather than an ambient effect.
       const col=ownerColor(fx.owner), r=fx.maxR*ease01(t), a=(1-t)*.62;
       const g=ctx.createRadialGradient(fx.x,fx.y,0,fx.x,fx.y,r);
-      g.addColorStop(0,'rgba(255,255,255,'+(.22*(1-t))+')'); g.addColorStop(.35,'rgba('+col+','+(.14*a)+')'); g.addColorStop(1,'rgba('+col+',0)');
+      g.addColorStop(0,'rgba(255,255,255,'+(.22*(1-t))+')'); g.addColorStop(.35,hexToRgba(col,.14*a)); g.addColorStop(1,hexToRgba(col,0));
       ctx.fillStyle=g; ctx.beginPath(); ctx.arc(fx.x,fx.y,r,0,TAU); ctx.fill();
-      for(let k=0;k<6;k++){const ang=k*(TAU/6)+t*1.1; ctx.strokeStyle='rgba('+col+','+(.28*a)+')'; ctx.lineWidth=Math.max(1,2.4*(1-t)); ctx.beginPath(); ctx.moveTo(fx.x,fx.y); ctx.lineTo(fx.x+Math.cos(ang)*r,fx.y+Math.sin(ang)*r); ctx.stroke();}
+      for(let k=0;k<6;k++){const ang=k*(TAU/6)+t*1.1; ctx.strokeStyle=hexToRgba(col,.28*a); ctx.lineWidth=Math.max(1,2.4*(1-t)); ctx.beginPath(); ctx.moveTo(fx.x,fx.y); ctx.lineTo(fx.x+Math.cos(ang)*r,fx.y+Math.sin(ang)*r); ctx.stroke();}
       ctx.strokeStyle='rgba(255,255,255,'+(a*.5)+')'; ctx.lineWidth=1.6; ctx.beginPath(); ctx.arc(fx.x,fx.y,r*.6,0,TAU); ctx.stroke();
     }else if(fx.type==='galaxyClear'){
       const r=fx.maxR*(.2+.9*t), a=(1-t)*.5;
@@ -3519,9 +3537,13 @@ function drawRoutePreview(){
 
 function drawExplosions(){
   ctx.save();ctx.globalCompositeOperation='lighter';
+  // Same rule as particles/orbits: shadowBlur is the priciest Canvas 2D op, so drop it
+  // once there are enough explosions on screen at once instead of paying it per-explosion.
+  const useBlur=explosions.length<45;
+  const fragCap=PERF.mobile?5:9;
   for(const e of explosions){
     const k=e.age/e.life,a=1-k,rad=e.r*(.4+k*2);
-    ctx.shadowColor=e.col;ctx.shadowBlur=18*a*PERF.fx;
+    if(useBlur){ctx.shadowColor=e.col;ctx.shadowBlur=18*a*PERF.fx;}else ctx.shadowBlur=0;
     const fill=ctx.createRadialGradient(e.x,e.y,0,e.x,e.y,rad*1.2);
     fill.addColorStop(0,hexToRgba('#ffffff',a*.12));
     fill.addColorStop(.35,hexToRgba(e.col,a*.18));
@@ -3529,7 +3551,7 @@ function drawExplosions(){
     ctx.fillStyle=fill;ctx.beginPath();ctx.arc(e.x,e.y,rad*1.15,0,TAU);ctx.fill();
     ctx.strokeStyle=hexToRgba(e.col,a*.78);ctx.lineWidth=1.4;ctx.beginPath();ctx.arc(e.x,e.y,rad,0,TAU);ctx.stroke();
     ctx.strokeStyle=hexToRgba('#ffffff',a*.28);ctx.lineWidth=.9;ctx.beginPath();ctx.arc(e.x,e.y,rad*.72,0,TAU);ctx.stroke();
-    const cap=Math.min(e.n,PERF.mobile?7:12);
+    const cap=Math.min(e.n,fragCap);
     for(let i=0;i<cap;i++){
       const ang=e.seed+i*2.4;const len=rad*(.28+k*1.18);const px=e.x+Math.cos(ang)*len,py=e.y+Math.sin(ang)*len;
       ctx.fillStyle=hexToRgba(e.col,a*.86);ctx.beginPath();ctx.arc(px,py,(1+rndFixed(e.seed+i,0,1.5))*a,0,TAU);ctx.fill();
