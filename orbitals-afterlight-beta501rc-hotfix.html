@@ -3761,7 +3761,11 @@ function drawSun(p){
   // No numbers or life rings: only planet, ships and a very subtle growth halo when growth is possible.
   const vitality=1;
   const flicker=0;
-  const tint=(p.owner==='neutral'&&p.claim)?ownerColor(p.claim):(p.owner==='neutral'?neutralPlanetColor(p.kind):col);
+  // A neutral planet must stay visibly grey for its entire siege and only actually change
+  // colour the instant ownership flips (hitPlanet's hp<=0 branch) — it used to preview the
+  // attacker's colour as soon as p.claim was set on the very first hit, which read as an
+  // instant conquest even though the underlying HP siege still correctly needed the full bar.
+  const tint=p.owner==='neutral'?neutralPlanetColor(p.kind):col;
   const glowBoost=Number(p.glowBoost||0);
   const specialBody=(p.kind==='ark'||p.kind==='leviathan'||p.kind==='colossus'||p.kind==='crystal'||p.kind==='fungal'||p.kind==='citadel'||p.kind==='wyrm');
   const abilityPulse=Math.max(0,Number(p.abilityPulse||0));
@@ -4054,6 +4058,27 @@ function onUp(e){
     clearSelection();
     for(const p of nodes)if(p.owner==='player'&&p.x>=minX&&p.x<=maxX&&p.y>=minY&&p.y<=maxY)selectedSources.add(p.id);
     for(const u of particles)if(u.owner==='player'&&!u.def&&u.x>=minX&&u.x<=maxX&&u.y>=minY&&u.y<=maxY){u.selected=true;selectedUnits.push(u);}
+    // Partial-garrison selection: a box that only catches SOME of a planet's orbiting defender
+    // dots (without containing the planet's own centre, which still selects it wholesale as
+    // above) pulls out exactly those caught units as individually-commandable ones and leaves
+    // the rest of the garrison behind — same physical "whatever falls inside the box" rule as
+    // free-flying units, just applied to the ones currently orbiting a planet.
+    for(const p of nodes){
+      if(p.owner!=='player'||selectedSources.has(p.id))continue;
+      const n=Math.floor(p.count); if(n<1)continue;
+      const drawN=Math.min(n,PERF.maxOrbit);
+      let extracted=0;
+      for(let i=0;i<drawN;i++){
+        const s=orbitPosCached(p,i);
+        if(s.x>=minX&&s.x<=maxX&&s.y>=minY&&s.y<=maxY){
+          const u={owner:'player',x:s.x,y:s.y,px:s.x,py:s.y,vx:0,vy:0,maxSpeed:33*Number(SETTINGS.particleSpeed),
+            nz:rnd(0,1e3),state:'hold',home:p.id,target:null,dest:{x:s.x,y:s.y},commandLock:false,arrivalGrace:1.4,
+            age:0,seed:rnd(0,1e4),wig:rnd(0,TAU),selected:true,wcool:0};
+          particles.push(u); selectedUnits.push(u); extracted++;
+        }
+      }
+      if(extracted>0)p.count=Math.max(0,p.count-extracted);
+    }
     if(selectedSources.size+selectedUnits.length){sfx('select');help.textContent=en?'Selected. Tap a planet to attack or a point to move.':'Seleccionado. Toca un planeta para atacar o un punto para mover.'}
     else help.textContent=en?'Nothing of yours there.':'Ahí no hay nada tuyo.';
     return;
