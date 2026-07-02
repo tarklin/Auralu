@@ -698,6 +698,7 @@ PERF.maxOrbit=PERF.baseMaxOrbit;       // orbiting dots drawn per sun
 PERF.collideEvery=PERF.baseCollideEvery;
 PERF.starDiv=PERF.baseStarDiv;
 PERF.fx=PERF.baseFx;
+PERF.resScale=1;                       // canvas backing-store scale, see retunePerformance
 
 /* ============================================================
    SETTINGS
@@ -764,7 +765,7 @@ function applySettingsRuntime(updateAudio=true){
   PERF.fx=PERF.baseFx*Number(SETTINGS.bloom||1);
   PERF.dprMax=PERF.baseDprMax;
   PERF.starDiv=PERF.baseStarDiv;
-  perfStats.level=0;
+  perfStats.level=0; PERF.resScale=1;
   camera.min=Number(SETTINGS.zoomMin);camera.max=Number(SETTINGS.zoomMax);camera.zoom=clamp(camera.zoom,camera.min,camera.max);
   document.documentElement.style.setProperty('--uiScale',Number(SETTINGS.hudScale)||1);document.body.classList.toggle('highContrast',Number(SETTINGS.highContrast)>=1);
   if(updateAudio&&masterGain&&audioCtx){
@@ -950,7 +951,7 @@ const PIECES=[
 ];
 const SCHED_AHEAD=0.34, SCHED_INTERVAL_MS=110, STEPS_PER_BAR=8, CHORD_CHANGE_BARS=2;
 let curPiece=null, chordIdx=0, motifPos=0, stepIndex=0, pieceStepStart=0, pieceBarsTotal=20, nextStepTime=0;
-let bassNodes=[], padVoices=[], choirVoices=[], tensionNode=null;
+let bassNodes=[], padVoices=[], choirVoices=[], tensionNode=null, climaxTier=0;
 function epicAmt(){return Number(SETTINGS.musicEpic||1)}
 function bassAmt(){return Number(SETTINGS.musicBass||1)}
 function chordTones(p,idx){ const ro=p.moves[((idx%p.moves.length)+p.moves.length)%p.moves.length]; return p.shape.map(s=>semis(p.root,ro+s)) }
@@ -1029,6 +1030,7 @@ function ensurePiece(){
   if(curPiece)return;
   const idx=nextPieceIdx(); curPiece=PIECES[idx];
   chordIdx=0; motifPos=0; pieceStepStart=stepIndex; pieceBarsTotal=20+Math.floor(rnd(0,12));
+  climaxTier=0;
   stepDur=60/curPiece.bpm/2;
   buildPieceLayers();
 }
@@ -1064,6 +1066,27 @@ function playPercussion(time,stepInBar){
     tone(48,.5,'sine',.05*climax*epicAmt(),0,musicBus,26);
   }
 }
+function stringPulse(time,stepInBar){
+  // A driving straight-8th low string layer that only appears once a fight is genuinely
+  // hot — the rhythmic "push" that makes an action cue feel urgent instead of just loud.
+  // Silent below the heat threshold, so calm exploration keeps its slower, spacious feel.
+  const heat=battleHeat; if(heat<.4)return;
+  const p=curPiece, tones=chordTones(p,chordIdx), f=tones[stepInBar%2===0?0:1%tones.length];
+  const o=audioCtx.createOscillator(),g=audioCtx.createGain(),fl=audioCtx.createBiquadFilter();
+  o.type='sawtooth';o.frequency.value=f;o.detune.value=rnd(-4,4);
+  fl.type='lowpass';fl.frequency.value=1000+heat*500;fl.Q.value=.5;
+  const vol=(heat-.4)*.09*epicAmt();
+  g.gain.setValueAtTime(0,time);g.gain.linearRampToValueAtTime(vol,time+.018);g.gain.exponentialRampToValueAtTime(.0001,time+.15);
+  o.connect(fl);fl.connect(g);g.connect(musicBus);o.start(time);o.stop(time+.2);
+}
+function brassStab(time){
+  // A full-chord horn hit fired once, the instant combat intensity crosses into a new
+  // tier — a "hero moment" accent, distinct from the periodic motif swell, so escalation
+  // is felt as a punctuated event rather than only a gradual volume build.
+  const p=curPiece, tones=chordTones(p,chordIdx), e=epicAmt();
+  tones.forEach((f,i)=>brassTone(time+i*.008,f*2,i===0?1.0:.6,(.09-i*.011)*e,true));
+  brassTone(time+.01,tones[tones.length-1]*4,1.15,.05*e,true);
+}
 function scheduleStep(stepTime){
   if(!curPiece)ensurePiece();
   const p=curPiece, local=stepIndex-pieceStepStart, stepInBar=local%STEPS_PER_BAR, bar=Math.floor(local/STEPS_PER_BAR);
@@ -1085,7 +1108,9 @@ function scheduleStep(stepTime){
     tensionNode.o.frequency.setTargetAtTime(semis(p.root,p.moves[chordIdx])*2,stepTime,.8);
   }
   if(choirVoices.length){
-    const choirVol=Math.pow(climax,1.6)*.052*epicAmt();
+    // Fuller ceiling than before: a real boss fight (climax pinned near 1) now brings the
+    // choir up close to the pads/brass instead of staying a background wash.
+    const choirVol=Math.pow(climax,1.4)*.072*epicAmt();
     choirVoices.forEach(v=>{ if(v&&v.g)v.g.gain.setTargetAtTime(choirVol,stepTime,1.2); });
   }
   if(musicMood==='menu'){
@@ -1094,6 +1119,13 @@ function scheduleStep(stepTime){
     if(stepInBar%2===0) playArpNote(stepTime,stepInBar);
     if(stepInBar===0) playMotifSwell(stepTime,true);
     playPercussion(stepTime,stepInBar);
+    stringPulse(stepTime,stepInBar);
+    // Orchestral hit the instant intensity crosses into a new tier, rather than only a
+    // gradual swell — fires at most once per tier per piece so it reads as a punctuation
+    // mark, not a repeating loop.
+    const tier=climax>.78?2:(climax>.5?1:0);
+    if(tier>climaxTier && stepInBar%4===0){ brassStab(stepTime); climaxTier=tier; }
+    else if(tier<climaxTier){ climaxTier=tier; }
   }
 }
 function musicSchedulerTick(){
@@ -1733,7 +1765,7 @@ function buildLevel(){
   const diff=DIFF[diffIndex], twist=CONSTS[constIndex].twist;
   const manualBal=manualBalanceFor(constIndex,levelIndex), diffCfg=difficultyCfg();
   nodes=[];particles=[];explosions=[];wormholes=[];nebulae=[];pulsars=[];hazards=[];bossEffects=[];shootingStars=[];meteorSpawnCd=rnd(4,9);
-  selectedSources.clear(); selectedUnits=[]; elapsed=0;gameOver=false;battleHeat=0;previewPoint=null;balance={attacks:0,lastWave:0,totalWave:0,redirects:0,started:performance.now(),show:balance.show};diplomacy={leader:null,share:0,pressure:0,last:0};survivalState={timer:0,raid:0,wave:0};spaceEvent={kind:null,age:0,life:0,cooldown:(18+rnd(8,20))*difficultyCfg().event,tick:0,seed:rnd(0,1e4)};camera.x=0;camera.y=0; perfStats.sum=0; perfStats.count=0; perfStats.level=0;
+  selectedSources.clear(); selectedUnits=[]; elapsed=0;gameOver=false;battleHeat=0;previewPoint=null;balance={attacks:0,lastWave:0,totalWave:0,redirects:0,started:performance.now(),show:balance.show};diplomacy={leader:null,share:0,pressure:0,last:0};survivalState={timer:0,raid:0,wave:0};spaceEvent={kind:null,age:0,life:0,cooldown:(18+rnd(8,20))*difficultyCfg().event,tick:0,seed:rnd(0,1e4)};camera.x=0;camera.y=0; perfStats.sum=0; perfStats.count=0; perfStats.level=0; PERF.resScale=1; applyResolutionScale();
   // backdropLayer must be set for the level being built BEFORE makeBackground() runs —
   // it was previously assigned after, so every level transition silently generated its
   // starfield/hero object using the outgoing level's theme instead of the new one.
@@ -2039,12 +2071,16 @@ function retunePerformance(dt){
   perfStats.level=level;
   const bloom=Number(SETTINGS.bloom||1);
   if(level===0){
-    PERF.maxParticles=PERF.baseMaxParticles; PERF.maxOrbit=PERF.baseMaxOrbit; PERF.collideEvery=PERF.baseCollideEvery; PERF.starDiv=PERF.baseStarDiv; PERF.fx=PERF.baseFx*bloom;
+    PERF.maxParticles=PERF.baseMaxParticles; PERF.maxOrbit=PERF.baseMaxOrbit; PERF.collideEvery=PERF.baseCollideEvery; PERF.starDiv=PERF.baseStarDiv; PERF.fx=PERF.baseFx*bloom; PERF.resScale=1;
   }else if(level===1){
-    PERF.maxParticles=Math.round(PERF.baseMaxParticles*.86); PERF.maxOrbit=Math.round(PERF.baseMaxOrbit*.9); PERF.collideEvery=Math.max(PERF.baseCollideEvery,3); PERF.starDiv=PERF.baseStarDiv*1.15; PERF.fx=PERF.baseFx*.88*bloom;
+    PERF.maxParticles=Math.round(PERF.baseMaxParticles*.86); PERF.maxOrbit=Math.round(PERF.baseMaxOrbit*.9); PERF.collideEvery=Math.max(PERF.baseCollideEvery,3); PERF.starDiv=PERF.baseStarDiv*1.15; PERF.fx=PERF.baseFx*.88*bloom; PERF.resScale=.92;
   }else{
-    PERF.maxParticles=Math.round(PERF.baseMaxParticles*.74); PERF.maxOrbit=Math.round(PERF.baseMaxOrbit*.8); PERF.collideEvery=Math.max(PERF.baseCollideEvery,4); PERF.starDiv=PERF.baseStarDiv*1.3; PERF.fx=PERF.baseFx*.78*bloom;
+    PERF.maxParticles=Math.round(PERF.baseMaxParticles*.74); PERF.maxOrbit=Math.round(PERF.baseMaxOrbit*.8); PERF.collideEvery=Math.max(PERF.baseCollideEvery,4); PERF.starDiv=PERF.baseStarDiv*1.3; PERF.fx=PERF.baseFx*.78*bloom; PERF.resScale=.8;
   }
+  // Cheapest lever last: shrinking the canvas backing-store resolution cuts every fill/
+  // gradient/shadowBlur's pixel cost without touching particle counts, orbit dots or any
+  // visible feature — pairs with the caps above instead of replacing them.
+  applyResolutionScale();
 }
 
 function update(dt){
@@ -2979,13 +3015,24 @@ function tryLockLandscape(force=false){
   }catch(_){updateOrientationGate()}
 }
 function syncViewportHeight(){try{document.documentElement.style.setProperty('--vh',(window.innerHeight*.01)+'px')}catch(_){}}
-function resize(){syncViewportHeight();DPR=Math.min(PERF.dprMax,window.devicePixelRatio||1);W=innerWidth;H=innerHeight;
+function resize(){syncViewportHeight();DPR=Math.min(PERF.dprMax,window.devicePixelRatio||1)*PERF.resScale;W=innerWidth;H=innerHeight;
   updateOrientationGate();
   canvas.width=Math.floor(W*DPR);canvas.height=Math.floor(H*DPR);ctx.setTransform(DPR,0,0,DPR,0,0);
   makeBackground();
   if(nodes.length){ for(const p of nodes){ const np=norm(p.nx,p.ny); if(p.motion){p.motion.anchorX=np.x;p.motion.anchorY=np.y;} else {p.bx=np.x;p.by=np.y;} }
     const lvl=CONSTS[constIndex]?.levels?.[levelIndex]; if(lvl)addMapHazards(lvl);
     separateNodes(); updateNodePositions(true); if(running)fitCameraToLevel(); }
+}
+function applyResolutionScale(){
+  // Cheaper alternative to dropping particles/effects when a device is genuinely struggling:
+  // shrink the canvas backing-store resolution (not the on-screen CSS size, not any game
+  // content) so every fill/gradient/shadowBlur has fewer pixels to rasterize. World-space
+  // drawing code is untouched since it already goes through the DPR transform below — only
+  // called from retunePerformance() on an actual tier change, never every frame.
+  const targetDpr=Math.min(PERF.dprMax,window.devicePixelRatio||1)*PERF.resScale;
+  if(Math.abs(targetDpr-DPR)<0.01)return;
+  DPR=targetDpr;
+  canvas.width=Math.floor(W*DPR);canvas.height=Math.floor(H*DPR);ctx.setTransform(DPR,0,0,DPR,0,0);
 }
 // Real star colour distribution: mostly white/blue-white, a minority of warm giants —
 // gives the field visual variety instead of uniform white dots.
