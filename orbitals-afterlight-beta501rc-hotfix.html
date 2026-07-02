@@ -877,8 +877,14 @@ let impactChordCursor=0, lastImpactSfxAt=0, impactMelodyCursor=0;
 function harmonicImpact(power=1){
   if(!audioCtx)return;
   const t=audioCtx.currentTime;
-  // Collisions can happen in clusters. Keep the sound musical instead of turning into noise.
-  if(t-lastImpactSfxAt<0.03)return;
+  // Collisions can happen in clusters. Keep the sound musical instead of turning into noise —
+  // and each call here spawns ~10 short-lived oscillator/noise nodes, which is real work for
+  // the audio thread. Widening this gap once retunePerformance has already flagged the device
+  // as struggling (perfStats.level) means big battles don't also choke audio on top of visuals,
+  // which is what "crackling" on weaker/real hardware usually is (buffer underrun from CPU
+  // contention), not digital clipping — that part is already handled by the limiter.
+  const impactGap=perfStats.level===0?0.03:(perfStats.level===1?0.055:0.09);
+  if(t-lastImpactSfxAt<impactGap)return;
   lastImpactSfxAt=t;
   const ch=IMPACT_CHORDS[impactChordCursor++%IMPACT_CHORDS.length], r=ch.root, p=clamp(power,.45,1.6);
   const melodyDeg=SCALE_PENT[(impactMelodyCursor++)%SCALE_PENT.length];
@@ -1055,7 +1061,9 @@ function playPercussion(time,stepInBar){
   if(stepInBar===6 && Math.random()<.4) playNoise(time,.3,.056*energy,3000,400,'bandpass');
   if(heat>.7){ // aggressive layer kicks in only when battle heat is near max
     if(stepInBar%2===1) playNoise(time,.1,.08*energy,260,60,'lowpass');
-    if(stepInBar%4===2 && Math.random()<.6) playNoise(time,.12,.052*energy,5000,1800,'bandpass');
+    // This extra flourish is the first thing dropped once the device is already struggling —
+    // a boss fight is exactly when battle SFX and this layer would otherwise both peak at once.
+    if(perfStats.level<2 && stepInBar%4===2 && Math.random()<.6) playNoise(time,.12,.052*energy,5000,1800,'bandpass');
   }
   if(climax>.62 && stepInBar%4===0){ // deep war-drum hit under boss fights / peak battles
     playNoise(time,.34,.1*climax*epicAmt(),140,30,'lowpass');
@@ -1066,7 +1074,11 @@ function stringPulse(time,stepInBar){
   // A driving straight-8th low string layer that only appears once a fight is genuinely
   // hot — the rhythmic "push" that makes an action cue feel urgent instead of just loud.
   // Silent below the heat threshold, so calm exploration keeps its slower, spacious feel.
+  // Also the first music layer to thin out under load (half-time at level 1, silent at level 2)
+  // since it's a pure embellishment stacking on top of whatever combat SFX are already firing.
   const heat=battleHeat; if(heat<.4)return;
+  if(perfStats.level>=2)return;
+  if(perfStats.level===1 && stepInBar%2===1)return;
   const p=curPiece, tones=chordTones(p,chordIdx), f=tones[stepInBar%2===0?0:1%tones.length];
   const o=audioCtx.createOscillator(),g=audioCtx.createGain(),fl=audioCtx.createBiquadFilter();
   o.type='sawtooth';o.frequency.value=f;o.detune.value=rnd(-4,4);
@@ -1401,6 +1413,19 @@ function decorateProceduralLevel(lvl,g,l){
       boss[8]=1;
       boss[9]=lvl.bossName;
       lvl.bossOwner=boss[2];
+      // Occasional giant neutral world — a size beyond the normal s/m/l tiers, reusing the
+      // existing hpMul/radiusMul scaling (same mechanism the boss line above uses) rather than
+      // a new size code, so none of the AI/combat heuristics that key off size==='l' need to
+      // change. Not every finale level gets one — it's meant to read as a rare set-piece.
+      if(Math.random()<.3){
+        const candidates=lvl.nodes.filter(n=>n!==boss && n[2]==='neutral');
+        if(candidates.length){
+          const giant=candidates[Math.floor(Math.random()*candidates.length)];
+          const roll=Math.random();
+          const tier=roll<.5?{hp:4/3,r:1.12}:(roll<.8?{hp:5/3,r:1.22}:{hp:2,r:1.32});
+          giant[3]='l'; giant[6]=Math.max(Number(giant[6])||1,tier.hp); giant[7]=Math.max(Number(giant[7])||1,tier.r);
+        }
+      }
     }
     if(g>=3){
       lvl.hazards=(lvl.hazards||[]).slice();
@@ -2365,7 +2390,11 @@ function hitPlanet(t,u){
     if(t.hp<=0){
       const wasBoss=t.boss, wasLarge=t.size==='l'; t.owner='neutral'; t.claim=null; t.count=0; t.upgrade=0; applyNodeStats(t,true);
       noteCapture(t,u.owner,oldOwner,wasBoss);
-      impactBurst(t.x,t.y,oldOwner==='player'?'#ff5d73':'#9fb0c8',wasBoss?2.6:1.5); burst(t.x,t.y,'#9fb0c8',wasBoss?38:24,wasBoss?.94:.68); sfx('capture'); haptic(wasBoss?[22,34,22]:14);
+      // A planet dropping to neutral is a distinct event from actually being captured — it still
+      // takes a full second wave to finish the job — so it gets its own duller "lost" sound
+      // instead of reusing the triumphant capture sting, which was making a fast, big wave feel
+      // like one instantaneous conversion instead of the two separate steps it actually is.
+      impactBurst(t.x,t.y,oldOwner==='player'?'#ff5d73':'#9fb0c8',wasBoss?2.6:1.5); burst(t.x,t.y,'#9fb0c8',wasBoss?38:24,wasBoss?.94:.68); sfx('lost'); haptic(wasBoss?[22,34,22]:14);
       if(u.owner==='player' && (wasBoss||wasLarge))cameraPunch(wasBoss?1.6:.9,wasBoss?.5:.34);
       if(u.owner==='player')help.textContent=en?'Knocked to neutral — spend 10 more to claim it.':'Pasó a gris: gasta otros 10 para hacerlo tuyo.';
     }
