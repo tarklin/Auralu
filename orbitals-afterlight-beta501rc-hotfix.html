@@ -1824,7 +1824,7 @@ function buildLevel(){
     const motion=shouldOrbit?{anchorX:p.x,anchorY:p.y,rx:rnd(10,28)*scale*orbitFactor,ry:rnd(6,19)*scale*orbitFactor,ang:rnd(0,TAU),spd:rnd(.014,.038)*(i%2?-1:1)*(lvl.orbit?1.55:1)}:null;
     const node={
       id:i,nx,ny,bx:p.x,by:p.y,x:p.x,y:p.y,owner,size,kind,level:startLevel,maxLevel,count,upgrade:0,
-      hp:maxHp,maxHp,claim:null,hitT:0,shields:[], hpMul, radiusMul, glowBoost, boss, bossName, bossPhase2:false,
+      hp:maxHp,maxHp,claim:null,claimHits:0,hitT:0,shields:[], hpMul, radiusMul, glowBoost, boss, bossName, bossPhase2:false,
       r:radiusFor(size,startLevel)*radiusMul,prod:((lvl&&lvl.puzzle)?(hostile?.18:.08):(hostile?(diff.enemyProd||1)*campaignProdBonus(constIndex,levelIndex)*(boss?1.08:1)*manualBal.enemyProd*diffCfg.prod:1)),emitT:0,route:null,defT:0,
       seed:rnd(0,1e4),motion,
       aiT:hostile?rnd(.25,1.15)*(1-levelPress*.24)/diffCfg.ai:rnd(1.3,3.2),
@@ -2262,7 +2262,13 @@ function applyArrival(u,t){
   // Friendly target = reinforcement. Neutral/enemy target = normal impact/capture logic.
   if(!u||!t)return;
   if(t.owner===u.owner){
-    t.count=(Number(t.count)||0)+1;
+    // Reinforcements repair the planet's siege HP before they ever become standing garrison —
+    // "impacting" your own colour heals it back up (and so it can absorb a full fresh siege
+    // again) instead of silently doing nothing until you remember to double-tap. Once it's
+    // fully healed, further arrivals go back to being ordinary garrison count as before —
+    // spending that garrison on an actual level-up is still the deliberate double-tap action.
+    if(t.hp<t.maxHp)t.hp=Math.min(t.maxHp,t.hp+1);
+    else t.count=(Number(t.count)||0)+1;
     t.hitT=Math.max(t.hitT||0,.22);
     if(Math.random()<.08)burst(t.x,t.y,ownerColor(t.owner),4,.18);
     return;
@@ -2370,9 +2376,11 @@ function hitPlanet(t,u){
   const en=Number(SETTINGS.language)>=1;
   if(t.owner==='neutral'){
     if(!t.claim || t.claim===u.owner){
-      t.claim=u.owner; t.hp-=1;
+      // Uncontested (or same colour continuing its siege): hp is permanent wear on the
+      // planet itself, so it only ever goes down here, never heals.
+      t.claim=u.owner; t.claimHits=(t.claimHits||0)+1; t.hp-=1;
       if(t.hp<=0){
-        const wasBoss=t.boss, wasLarge=t.size==='l', oldOwner=t.owner; t.owner=u.owner; t.claim=null; t.count=0; t.upgrade=0; applyNodeStats(t,true);
+        const wasBoss=t.boss, wasLarge=t.size==='l', oldOwner=t.owner; t.owner=u.owner; t.claim=null; t.claimHits=0; t.count=0; t.upgrade=0; applyNodeStats(t,true);
         noteCapture(t,u.owner,oldOwner,wasBoss);
         impactBurst(t.x,t.y,ownerColor(u.owner),wasBoss?2.8:1.7); burst(t.x,t.y,ownerColor(u.owner),wasBoss?42:26,wasBoss?1.0:.8); sfx('capture'); haptic(wasBoss?[30,40,30]:18);
         if(u.owner==='player' && (wasBoss||wasLarge)){
@@ -2382,13 +2390,19 @@ function hitPlanet(t,u){
         if(u.owner==='player')help.textContent=en?'Captured. It produces for you now.':'Capturado. Ya produce para ti.';
       }
     } else {
-      t.hp=Math.min(t.maxHp,t.hp+1); if(t.hp>=t.maxHp)t.claim=null;
+      // A rival colour attacking a planet someone else is already sieging doesn't heal it —
+      // it just cancels that claimant's invested hits 1-for-1 (tug of war for credit). Only
+      // once the rival's claim is fully cancelled does the NEXT hit start building this
+      // attacker's own claim, continuing to drain hp from wherever it currently sits rather
+      // than restoring it — the planet's wear is permanent, only who gets credit for it changes.
+      t.claimHits=(t.claimHits||0)-1;
+      if(t.claimHits<=0){ t.claim=null; t.claimHits=0; }
     }
   } else {
     const oldOwner=t.owner;
     t.hp-=1;
     if(t.hp<=0){
-      const wasBoss=t.boss, wasLarge=t.size==='l'; t.owner='neutral'; t.claim=null; t.count=0; t.upgrade=0; applyNodeStats(t,true);
+      const wasBoss=t.boss, wasLarge=t.size==='l'; t.owner='neutral'; t.claim=null; t.claimHits=0; t.count=0; t.upgrade=0; applyNodeStats(t,true);
       noteCapture(t,u.owner,oldOwner,wasBoss);
       // A planet dropping to neutral is a distinct event from actually being captured — it still
       // takes a full second wave to finish the job — so it gets its own duller "lost" sound
