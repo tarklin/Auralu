@@ -68,10 +68,6 @@ canvas{display:block;width:100vw;height:calc(var(--vh,1vh)*100);height:100dvh;ba
 .eventBanner.show{opacity:1;transform:translateX(-50%) translateY(3px)}
 .transitionVeil{position:fixed;inset:0;z-index:90;pointer-events:none;background:radial-gradient(circle at 50% 45%,rgba(150,220,255,.18),rgba(3,6,18,.68) 72%,rgba(0,0,0,.88));opacity:0;transition:opacity .45s ease}
 .transitionVeil.show{opacity:1}
-.bossWarning{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 62px);transform:translateX(-50%);z-index:31;pointer-events:none;
-  padding:8px 13px;border-radius:999px;border:1px solid rgba(255,210,120,.3);background:rgba(40,20,6,.56);backdrop-filter:blur(14px);
-  color:#ffe0a8;font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:0;transition:opacity .22s ease, transform .22s ease;box-shadow:0 10px 34px rgba(0,0,0,.28)}
-.bossWarning.show{opacity:1;transform:translateX(-50%) translateY(3px)}
 .endMedal{font-size:42px;line-height:1;margin:4px 0 7px;text-shadow:0 0 28px rgba(255,218,120,.28)}
 .endStatsGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:13px 0 8px}
 .endStat{padding:10px 8px;border-radius:14px;background:rgba(3,10,24,.42);border:1px solid rgba(126,190,255,.16);text-align:center}
@@ -106,7 +102,7 @@ canvas{display:block;width:100vw;height:calc(var(--vh,1vh)*100);height:100dvh;ba
   box-shadow:0 14px 42px rgba(0,0,0,.34);opacity:0;transform:translateY(-8px);transition:opacity .28s ease,transform .28s ease;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
 .achievementToast.show{opacity:1;transform:translateY(0)}
 @media(max-width:560px){.seedRow{grid-template-columns:1fr}.achievementToast{left:12px;right:12px;top:auto;bottom:calc(env(safe-area-inset-bottom) + 112px);max-width:none}.missionBadge{font-size:8px}}
-@media(max-width:560px){.eventBanner{top:calc(env(safe-area-inset-top) + 10px);max-width:86vw;text-align:center}.bossWarning{top:calc(env(safe-area-inset-top) + 48px);max-width:88vw;text-align:center}.endStatsGrid{grid-template-columns:repeat(2,1fr)}.endMedal{font-size:34px}}
+@media(max-width:560px){.eventBanner{top:calc(env(safe-area-inset-top) + 10px);max-width:86vw;text-align:center}.endStatsGrid{grid-template-columns:repeat(2,1fr)}.endMedal{font-size:34px}}
 .debug{position:fixed;left:9px;bottom:calc(env(safe-area-inset-bottom) + 52px);z-index:99;max-width:94vw;color:#ffd1d1;
   background:rgba(70,5,8,.82);border:1px solid rgba(255,120,120,.35);border-radius:12px;padding:8px 10px;font-size:11px;display:none;white-space:pre-wrap}
 
@@ -151,7 +147,9 @@ canvas{display:block;width:100vw;height:calc(var(--vh,1vh)*100);height:100dvh;ba
 .choice{min-height:96px;padding:13px;text-align:left;color:#eaf8ff;border:1px solid rgba(126,190,255,.24);
   background:linear-gradient(180deg,rgba(12,32,64,.62),rgba(4,11,24,.5));border-radius:16px;appearance:none;position:relative;overflow:hidden}
 .choice.active{border-color:rgba(63,224,255,.78);box-shadow:0 0 22px rgba(63,224,255,.18),inset 0 0 18px rgba(63,224,255,.08)}
-.choice.locked{opacity:.42;filter:grayscale(.4)}
+.choice.incomplete{border-color:rgba(255,90,90,.4)}
+.choice.incomplete .choiceTitle{color:#ffb3b3}
+.choice.incomplete .stars{color:#ff6b6b}
 .choiceTitle{font-weight:500;letter-spacing:.08em;text-transform:uppercase;font-size:12px}
 .choiceMeta{margin-top:6px;color:#90a8c6;font-size:10px;line-height:1.4}
 .choiceTag{position:absolute;top:9px;right:10px;font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--yellow)}
@@ -210,11 +208,12 @@ canvas{display:block;width:100vw;height:calc(var(--vh,1vh)*100);height:100dvh;ba
 .galaxyCore{position:absolute;inset:18px;border-radius:50%;background:radial-gradient(circle,#fff,rgba(127,210,255,.78) 18%,rgba(63,224,255,.16) 48%,transparent 72%);box-shadow:0 0 30px rgba(63,224,255,.28)}
 .galaxyArm{position:absolute;inset:9px;border-radius:50%;border:1px solid rgba(200,235,255,.14);transform:rotate(var(--rot,0deg)) scaleX(1.75);box-shadow:0 0 18px rgba(63,224,255,.12)}
 .galaxyArm.two{inset:17px;transform:rotate(calc(var(--rot,0deg) + 70deg)) scaleX(1.95);opacity:.72}.galaxyArm.three{inset:25px;transform:rotate(calc(var(--rot,0deg) - 43deg)) scaleX(2.2);opacity:.45}
-.galaxyLockedVeil{position:absolute;inset:0;background:linear-gradient(180deg,rgba(2,5,14,.12),rgba(2,5,14,.62));pointer-events:none}.choice.galaxyChoice:not(.locked) .galaxyLockedVeil{display:none}
+.choice.galaxyChoice.incomplete{border-color:rgba(255,90,90,.4)}
+.choice.galaxyChoice.incomplete .choiceTitle{color:#ffb3b3}
 .galaxyContent{position:relative;z-index:1;padding-top:78px}.galaxyMetaLine{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
 .galaxyPill{font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:#b9d4f1;border:1px solid rgba(126,190,255,.20);border-radius:999px;padding:4px 7px;background:rgba(3,10,24,.34)}
 .galaxyLore{margin-top:8px;color:#90a8c6;font-size:10px;line-height:1.35;min-height:27px}.galaxyProgressText{position:absolute;right:12px;top:12px;color:#ffc24d;font-size:9px;letter-spacing:.16em;text-transform:uppercase}
-.galaxyThreat{position:absolute;right:13px;bottom:12px;color:#7fd0ff;font-size:9px;letter-spacing:.14em;text-transform:uppercase}.choice.galaxyChoice.locked .galaxyThreat{color:#8d9ab0}
+.galaxyThreat{position:absolute;right:13px;bottom:12px;color:#7fd0ff;font-size:9px;letter-spacing:.14em;text-transform:uppercase}
 .galaxyBossBadge{position:absolute;left:14px;bottom:12px;color:#ffd89a;font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;border:1px solid rgba(255,210,120,.22);border-radius:999px;padding:4px 7px;background:rgba(40,22,5,.25)}
 .galaxyPath{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;margin-top:10px}.galaxyDot{height:5px;border-radius:999px;background:rgba(126,190,255,.14);box-shadow:inset 0 0 8px rgba(0,0,0,.25)}.galaxyDot.done{background:linear-gradient(90deg,rgba(63,224,255,.75),rgba(255,210,90,.78));box-shadow:0 0 9px rgba(63,224,255,.18)}.galaxyDot.boss{background:linear-gradient(90deg,rgba(255,145,100,.38),rgba(255,210,90,.42));border:1px solid rgba(255,210,90,.18)}.galaxyDot.done.boss{background:linear-gradient(90deg,rgba(255,120,120,.85),rgba(255,232,130,.95));box-shadow:0 0 12px rgba(255,210,90,.26)}
 .choice.finalLevel{border-color:rgba(255,210,90,.36);box-shadow:inset 0 0 22px rgba(255,210,90,.045)}.choice.finalLevel.active{border-color:rgba(255,210,90,.78);box-shadow:0 0 24px rgba(255,210,90,.16),inset 0 0 20px rgba(255,210,90,.08)}.levelBossTag{display:inline-block;margin-top:6px;color:#ffc24d;border:1px solid rgba(255,210,90,.22);border-radius:999px;padding:3px 6px;font-size:8px;letter-spacing:.12em;text-transform:uppercase;background:rgba(40,22,5,.22)}
@@ -433,7 +432,6 @@ body.gameClean .modeCtl{opacity:.97}
 <div class="bottom"><div class="card help" id="help">Toca un planeta tuyo y marca el destino. Hacia un planeta: atacar. Hacia un punto vacío: mover y esperar.</div></div>
 <div class="toast" id="toast"></div>
 <div class="eventBanner" id="eventBanner"></div>
-<div class="bossWarning" id="bossWarning"></div>
 <div class="achievementToast" id="achievementToast"></div>
 <div class="transitionVeil" id="transitionVeil"></div>
 <div class="fileWarning" id="fileWarning"><button id="fileWarningClose">OK</button><span id="fileWarningText">Aviso: estás abriendo el juego desde un gestor de archivos Android. Para PWA/app, súbelo a hosting HTTPS o empaquétalo con Capacitor.</span></div>
@@ -611,7 +609,7 @@ body.gameClean .modeCtl{opacity:.97}
    ============================================================ */
 const canvas=document.getElementById('game'), ctx=canvas.getContext('2d');
 const $=id=>document.getElementById(id);
-const menu=$('menu'), stats=$('stats'), help=$('help'), title=$('mapTitle'), toast=$('toast'), debug=$('debug'), eventBanner=$('eventBanner'), bossWarning=$('bossWarning'), achievementToast=$('achievementToast'), transitionVeil=$('transitionVeil'), pausePanel=$('pausePanel'), diagnosticPanel=$('diagnosticPanel'), fileWarning=$('fileWarning'), onboardPanel=$('onboardPanel');
+const menu=$('menu'), stats=$('stats'), help=$('help'), title=$('mapTitle'), toast=$('toast'), debug=$('debug'), eventBanner=$('eventBanner'), achievementToast=$('achievementToast'), transitionVeil=$('transitionVeil'), pausePanel=$('pausePanel'), diagnosticPanel=$('diagnosticPanel'), fileWarning=$('fileWarning'), onboardPanel=$('onboardPanel');
 const TAU=Math.PI*2;
 const rnd=(a,b)=>a+Math.random()*(b-a), clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), lerp=(a,b,t)=>a+(b-a)*t;
 function rndFixed(seed,a,b){const x=Math.sin(seed*12.9898)*43758.5453;return a+(x-Math.floor(x))*(b-a)}
@@ -706,7 +704,7 @@ PERF.fx=PERF.baseFx;
    ============================================================ */
 const SETTINGS_KEY='orbitals.afterlight.v2.settings';
 const SETTINGS_DEFAULTS={
-  masterVolume:1.15, musicVolume:1.2, sfxVolume:.84, musicEnabled:1, sfxEnabled:1,
+  masterVolume:1.0, musicVolume:1.05, sfxVolume:.84, musicEnabled:1, sfxEnabled:1,
   musicEpic:1.18, musicBass:1.08, melodyOnActions:1,
   language:0, graphicsPreset:1, lowPowerMode:0, bloom:1, starDensity:1, nebulaDensity:1, trailLength:1,
   gameSpeed:1, campaignDifficulty:1, playerSkin:'cyan', reducedFlashes:0, highContrast:0, androidSafeMode:0, productionMul:1, enemyMul:1, aiAggression:1,
@@ -734,6 +732,15 @@ function loadSettings(){try{const raw=localStorage.getItem(SETTINGS_KEY);let sav
     SETTINGS.masterVolume=Math.max(Number(SETTINGS.masterVolume)||0,SETTINGS_DEFAULTS.masterVolume);
     SETTINGS.musicVolume=Math.max(Number(SETTINGS.musicVolume)||0,SETTINGS_DEFAULTS.musicVolume);
     SETTINGS.audioBoostPatch=1;
+    try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(SETTINGS))}catch(_){}
+  }
+  if(saved.audioLimiterPatch!==1){
+    // That first boost had no limiter behind it and clipped. A limiter is in place now, but
+    // also walk back anyone who is still sitting on the old (too hot) auto-migrated values —
+    // only if they never touched the slider themselves, so manual choices are left alone.
+    if(Math.abs(Number(SETTINGS.masterVolume)-1.15)<.001)SETTINGS.masterVolume=SETTINGS_DEFAULTS.masterVolume;
+    if(Math.abs(Number(SETTINGS.musicVolume)-1.2)<.001)SETTINGS.musicVolume=SETTINGS_DEFAULTS.musicVolume;
+    SETTINGS.audioLimiterPatch=1;
     try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(SETTINGS))}catch(_){}
   }
   }catch(_){SETTINGS={...SETTINGS_DEFAULTS}}applySettingsRuntime(false)}
@@ -809,12 +816,12 @@ function applyLanguage(){
 /* ============================================================
    AUDIO — ambient adaptive engine
    ============================================================ */
-let audioCtx=null, masterGain=null, musicGain=null, sfxGain=null, reverb=null, reverbGain=null;
+let audioCtx=null, masterGain=null, musicGain=null, sfxGain=null, reverb=null, reverbGain=null, limiter=null;
 let audioUnlocked=false, musicScene='title', musicMood='menu';
 let musicBus=null, padFilter=null, musicOn=false, schedTimer=null, stepDur=.25;
 let musicBag=[], lastPieceIdx=-1;
 
-function makeReverb(seconds=2.4,decay=2.6){
+function makeReverb(seconds=3.0,decay=2.4){
   const rate=audioCtx.sampleRate, len=Math.floor(rate*seconds), buf=audioCtx.createBuffer(2,len,rate);
   for(let ch=0;ch<2;ch++){const d=buf.getChannelData(ch);for(let i=0;i<len;i++){d[i]=(Math.random()*2-1)*Math.pow(1-i/len,decay)}}
   const c=audioCtx.createConvolver();c.buffer=buf;return c;
@@ -824,8 +831,19 @@ function initAudio(){
     if(audioUnlocked){if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();return}
     const AC=window.AudioContext||window.webkitAudioContext; if(!AC)return;
     audioCtx=audioCtx||new AC();
-    masterGain=audioCtx.createGain();masterGain.gain.value=Number(SETTINGS.masterVolume);masterGain.connect(audioCtx.destination);
-    reverb=makeReverb(); reverbGain=audioCtx.createGain();reverbGain.gain.value=.55;reverb.connect(reverbGain);reverbGain.connect(masterGain);
+    masterGain=audioCtx.createGain();masterGain.gain.value=Number(SETTINGS.masterVolume);
+    // Everything used to sum straight into the hardware output with no ceiling: with several
+    // pad/bass layers, percussion and impact SFX all firing at once, the signal routinely
+    // exceeded 0dBFS and hard-clipped — that is the "crackling/popping". A limiter here catches
+    // those peaks so loud moments compress instead of distorting.
+    limiter=audioCtx.createDynamicsCompressor();
+    limiter.threshold.setValueAtTime(-6,audioCtx.currentTime);
+    limiter.knee.setValueAtTime(6,audioCtx.currentTime);
+    limiter.ratio.setValueAtTime(16,audioCtx.currentTime);
+    limiter.attack.setValueAtTime(0.003,audioCtx.currentTime);
+    limiter.release.setValueAtTime(0.18,audioCtx.currentTime);
+    masterGain.connect(limiter); limiter.connect(audioCtx.destination);
+    reverb=makeReverb(); reverbGain=audioCtx.createGain();reverbGain.gain.value=.5;reverb.connect(reverbGain);reverbGain.connect(masterGain);
     musicGain=audioCtx.createGain();musicGain.gain.value=Number(SETTINGS.musicVolume)*Number(SETTINGS.musicEnabled);musicGain.connect(masterGain);musicGain.connect(reverb);
     sfxGain=audioCtx.createGain();sfxGain.gain.value=Number(SETTINGS.sfxVolume)*Number(SETTINGS.sfxEnabled);sfxGain.connect(masterGain);sfxGain.connect(reverb);
     audioUnlocked=true;
@@ -994,15 +1012,15 @@ function nextPieceIdx(){
 function buildPieceLayers(){
   const p=curPiece, e=epicAmt(), b=bassAmt();
   bassNodes=[
-    makePad(p.root*.25,.05*b*e*.65,'sine',musicBus),   // sub layer for cinematic weight
-    makePad(p.root*.5,.078*b*e*.7,'sine',musicBus),
-    makePad(p.root,.05*b*e*.7,'sine',musicBus)
+    makePad(p.root*.25,.042*b*e*.65,'sine',musicBus),   // sub layer for cinematic weight
+    makePad(p.root*.5,.066*b*e*.7,'sine',musicBus),
+    makePad(p.root,.043*b*e*.7,'sine',musicBus)
   ];
   const tones=chordTones(p,0);
-  padVoices=tones.map(f=>makePad(f,.038*e,'triangle',padFilter));
-  padVoices.push(makePad(tones[tones.length-1]*2,.02*e,'sine',padFilter)); // airy top voice for "epic choir" lift
+  padVoices=tones.map((f,i)=>makePad(f,.031*e,'triangle',padFilter,(i/Math.max(1,tones.length-1)-.5)*1.1));
+  padVoices.push(makePad(tones[tones.length-1]*2,.017*e,'sine',padFilter,0)); // airy top voice for "epic choir" lift
   // hidden choir pads: silent until a boss fight or high battle heat swells them in
-  choirVoices=[0,-5,7].map(shift=>makePad(semis(p.root,shift)*2,0,'sine',padFilter));
+  choirVoices=[0,-5,7].map((shift,i)=>makePad(semis(p.root,shift)*2,0,'sine',padFilter,(i-1)*.5));
   const to=audioCtx.createOscillator(),tf=audioCtx.createBiquadFilter(),tg=audioCtx.createGain();
   to.type='sawtooth';to.frequency.value=p.root*2;to.detune.value=9;tf.type='lowpass';tf.frequency.value=900;tg.gain.value=0;
   to.connect(tf);tf.connect(tg);tg.connect(musicBus);to.start();tensionNode={o:to,g:tg};
@@ -1023,23 +1041,23 @@ function finishPiece(time){
 function playMotifSwell(time,punchy){
   const p=curPiece; const deg=p.motif[motifPos%p.motif.length]; motifPos++;
   const climax=climaxAmt();
-  const f=semis(p.root,deg)*2, dur=(punchy? .85:3.0)*(1+climax*.22), vol=(punchy? .075:.068)*epicAmt()*(1+climax*.65);
+  const f=semis(p.root,deg)*2, dur=(punchy? .85:3.0)*(1+climax*.22), vol=(punchy? .062:.056)*epicAmt()*(1+climax*.6);
   brassTone(time,f,dur,vol,!!punchy);
-  if(climax>.72 && punchy) brassTone(time+.045,f*2,dur*.55,vol*.42,true); // octave-up stab for hero moments
+  if(climax>.72 && punchy) brassTone(time+.045,f*2,dur*.55,vol*.4,true); // octave-up stab for hero moments
 }
 function playArpNote(time,stepInBar){
   const p=curPiece, tones=chordTones(p,chordIdx), f=tones[stepInBar%tones.length]*2, heat=battleHeat;
-  playTone(time,f,.22,'triangle',(.08+heat*.03)*epicAmt(),musicBus);
-  if(heat>.75 && stepInBar%2===0) playTone(time,f*1.5,.16,'sawtooth',.05*epicAmt(),musicBus);
+  playTone(time,f,.22,'triangle',(.062+heat*.024)*epicAmt(),musicBus);
+  if(heat>.75 && stepInBar%2===0) playTone(time,f*1.5,.16,'sawtooth',.038*epicAmt(),musicBus);
 }
 function playPercussion(time,stepInBar){
   const heat=battleHeat, energy=.5+heat*.6, climax=climaxAmt();
-  if(stepInBar%4===0) playNoise(time,.16,.13*energy,170,40,'lowpass');
-  else if(stepInBar%2===0) playNoise(time,.05,.045*energy,6000,2500,'highpass');
-  if(stepInBar===6 && Math.random()<.4) playNoise(time,.3,.07*energy,3000,400,'bandpass');
+  if(stepInBar%4===0) playNoise(time,.16,.105*energy,170,40,'lowpass');
+  else if(stepInBar%2===0) playNoise(time,.05,.036*energy,6000,2500,'highpass');
+  if(stepInBar===6 && Math.random()<.4) playNoise(time,.3,.056*energy,3000,400,'bandpass');
   if(heat>.7){ // aggressive layer kicks in only when battle heat is near max
-    if(stepInBar%2===1) playNoise(time,.1,.1*energy,260,60,'lowpass');
-    if(stepInBar%4===2 && Math.random()<.6) playNoise(time,.12,.065*energy,5000,1800,'bandpass');
+    if(stepInBar%2===1) playNoise(time,.1,.08*energy,260,60,'lowpass');
+    if(stepInBar%4===2 && Math.random()<.6) playNoise(time,.12,.052*energy,5000,1800,'bandpass');
   }
   if(climax>.62 && stepInBar%4===0){ // deep war-drum hit under boss fights / peak battles
     playNoise(time,.34,.1*climax*epicAmt(),140,30,'lowpass');
@@ -1093,26 +1111,32 @@ function musicSchedulerTick(){
   }
   schedTimer=setTimeout(musicSchedulerTick,SCHED_INTERVAL_MS);
 }
-function makePad(freq,vol,type,dest){
+function makePad(freq,vol,type,dest,pan){
   const o=audioCtx.createOscillator(),g=audioCtx.createGain(),lfo=audioCtx.createOscillator(),lg=audioCtx.createGain();
   o.type=type;o.frequency.value=freq;o.detune.value=rnd(-6,6);
   lfo.frequency.value=.03+Math.random()*.06;lg.gain.value=2+Math.random()*4;lfo.connect(lg);lg.connect(o.detune);
   g.gain.value=0;g.gain.setTargetAtTime(vol,audioCtx.currentTime,2.8);
-  o.connect(g);g.connect(dest);lfo.start();o.start();return {o,g};
+  // Subtle stereo spread on pad/choir voices makes the mix feel bigger/more cinematic —
+  // bass stays centred (dest) since wide low end can phase-cancel on small speakers.
+  if(pan&&audioCtx.createStereoPanner){
+    const p=audioCtx.createStereoPanner(); p.pan.value=clamp(pan,-1,1);
+    o.connect(g);g.connect(p);p.connect(dest);
+  } else { o.connect(g);g.connect(dest); }
+  lfo.start();o.start();return {o,g};
 }
 function applyMusicGains(){
   if(!audioCtx||!musicBus)return; const e=epicAmt(),b=bassAmt();
-  const sceneMul=(musicMood==='game'?1.15:0.92);
+  const sceneMul=(musicMood==='game'?0.98:0.78);
   musicBus.gain.setTargetAtTime(sceneMul*e,audioCtx.currentTime,.45);
   // bassNodes: [0] sub layer, [1] root*.5, [2] root — sub stays subtle, mainly adding weight in-game
-  if(bassNodes[0])bassNodes[0].g.gain.setTargetAtTime((musicMood==='game'?.08:.045)*b*e*.72,audioCtx.currentTime,.55);
-  if(bassNodes[1])bassNodes[1].g.gain.setTargetAtTime((musicMood==='game'?.14:.11)*b*e*.72,audioCtx.currentTime,.55);
-  if(bassNodes[2])bassNodes[2].g.gain.setTargetAtTime((musicMood==='game'?.095:.075)*b*e*.72,audioCtx.currentTime,.55);
+  if(bassNodes[0])bassNodes[0].g.gain.setTargetAtTime((musicMood==='game'?.066:.038)*b*e*.72,audioCtx.currentTime,.55);
+  if(bassNodes[1])bassNodes[1].g.gain.setTargetAtTime((musicMood==='game'?.115:.09)*b*e*.72,audioCtx.currentTime,.55);
+  if(bassNodes[2])bassNodes[2].g.gain.setTargetAtTime((musicMood==='game'?.078:.062)*b*e*.72,audioCtx.currentTime,.55);
 }
 function startMusicEngine(){
   if(!audioCtx||Number(SETTINGS.musicEnabled)<=0||musicOn)return;
   musicOn=true;
-  musicBus=audioCtx.createGain();musicBus.gain.value=(musicMood==='game'?1.15:0.92)*epicAmt();musicBus.connect(musicGain);musicBus.connect(reverb);
+  musicBus=audioCtx.createGain();musicBus.gain.value=(musicMood==='game'?0.98:0.78)*epicAmt();musicBus.connect(musicGain);musicBus.connect(reverb);
   padFilter=audioCtx.createBiquadFilter();padFilter.type='lowpass';padFilter.frequency.value=900;padFilter.Q.value=.6;padFilter.connect(musicBus);
   stepDur=60/72/2; nextStepTime=audioCtx.currentTime+.05; stepIndex=0; pieceStepStart=0; curPiece=null;
   musicSchedulerTick();
@@ -1539,8 +1563,10 @@ function clearErrorLog(){errorLog=[];saveErrorLog();renderDiagnostics();toast.te
 function loadProgress(){try{progress=JSON.parse(localStorage.getItem(PROG_KEY))||{}}catch(_){try{progress=JSON.parse(localStorage.getItem(PROG_BACKUP_KEY))||{}}catch(__){progress={}}}}
 function saveProgress(){try{localStorage.setItem(PROG_BACKUP_KEY,JSON.stringify(progress));localStorage.setItem(PROG_KEY,JSON.stringify(progress))}catch(_){}}
 function levelKey(c,l){return c+':'+l}
-function isUnlocked(c,l){ if(isCustomConst(c)||isSkirmishConst(c))return true; if(l===0)return true; if(c>0&&l===0)return constCleared(c-1); return !!progress[levelKey(c,l-1)] }
-function constUnlocked(c){ if(isSkirmishConst(c))return true; return isCustomConst(c)?customMaps.length>0:(c===0 || constCleared(c-1)) }
+// Every level and galaxy is playable from the start — completion is now only tracked to
+// colour incomplete entries red, not to gate access to them.
+function isUnlocked(c,l){ return true; }
+function constUnlocked(c){ return isCustomConst(c)?customMaps.length>0:true; }
 function constCleared(c){ return CONSTS[c].levels.every((_,l)=>!!progress[levelKey(c,l)]) }
 function recordWin(c,l,stars){ if(isCustomConst(c)||isSkirmishConst(c))return; const k=levelKey(c,l); const prev=progress[k]||0; if(stars>prev)progress[k]=stars; saveProgress() }
 function progressBundle(){return {game:'orbitals-afterlight',version:50,savedAt:new Date().toISOString(),progress:progress||{},settings:SETTINGS||{},customMaps:customMaps||[]}}
@@ -1842,14 +1868,6 @@ function rewardText(win,stars,lvl){
   if(stars>=2)return 'Victoria sólida';
   return 'Sector asegurado';
 }
-function showBossWarning(p){
-  if(!p||!p.boss)return;
-  battleStats.warnings++;
-  const msg=(p.bossName||'JEFE').toUpperCase()+' PREPARA '+bossAbilityName(p).toUpperCase();
-  if(bossWarning){bossWarning.textContent=msg;bossWarning.classList.add('show');setTimeout(()=>bossWarning.classList.remove('show'),1400)}
-  bossEffects.push({type:'warning',x:p.x,y:p.y,owner:p.owner,age:0,life:1.7,maxR:p.r*4.4});
-  screenShake(2.5,.22); haptic([10,18,10]);
-}
 function showMobileOnboarding(){
   if(progress._mobileTutor50)return;
   try{if(!(matchMedia&&matchMedia('(pointer: coarse)').matches))return}catch(_){return}
@@ -1863,7 +1881,7 @@ function focusBossIntro(){
   if(!lvl||!lvl.specialGlow)return;
   const boss=nodes.find(n=>n.boss&&isHostile(n.owner));
   if(!boss)return;
-  setTimeout(()=>{if(running&&!gameOver){focusCameraOn(boss.x,boss.y,Math.max(.78,Math.min(1.08,camera.zoom*1.08))); if(eventBanner){eventBanner.textContent='JEFE FINAL · '+(boss.bossName||'DESCONOCIDO').toUpperCase();eventBanner.classList.add('show');setTimeout(()=>eventBanner.classList.remove('show'),1500)}}},650);
+  setTimeout(()=>{if(running&&!gameOver){focusCameraOn(boss.x,boss.y,Math.max(.78,Math.min(1.08,camera.zoom*1.08)))}},650);
 }
 function tutorialPulse(){
   clearTutorialTimers();
@@ -1982,7 +2000,6 @@ function triggerSpaceEvent(kind){
   kind=kind||pool[Math.floor(Math.random()*pool.length)]||'aurora';
   const life={aurora:9,surge:10,ion:11,meteor:8,silence:9}[kind]||9;
   spaceEvent={kind,age:0,life,cooldown:(24+rnd(10,24))*difficultyCfg().event,tick:0,seed:rnd(0,1e4)}; battleStats.events++;
-  if(eventBanner){eventBanner.textContent=eventLabel(kind);eventBanner.classList.add('show');setTimeout(()=>eventBanner.classList.remove('show'),1600)}
   sfx('event'); screenShake(kind==='meteor'?4.2:2.2,.22); haptic(kind==='meteor'?[14,20,14]:12);
 }
 function updateSpaceEvents(dt){
@@ -2072,7 +2089,6 @@ function update(dt){
   updateSurvivalMode(dt);
   ai(dt);
   aiRedirection();
-  updatePlayerThreatWarnings(dt);
   updateBackgroundFx(dt);
   updateBattleHeat(dt);
   checkWin();
@@ -2119,14 +2135,14 @@ function orbitingDefenderHit(P,e){
   const drawN=Math.min(defenders,PERF.maxOrbit);
   const hitR=4.6;
   const hitR2=hitR*hitR;
-  const maxD=P.r+28+P.level*6;
-  const dNow=Math.hypot(e.x-P.x,e.y-P.y);
-  const dPrev=Math.hypot((e.px??e.x)-P.x,(e.py??e.y)-P.y);
-  if(Math.min(dNow,dPrev)>maxD+12)return null;
+  const maxD=P.r+28+P.level*6, maxD2=(maxD+12)*(maxD+12);
+  const nx=e.x-P.x, ny=e.y-P.y, dNow2=nx*nx+ny*ny;
+  const px2=(e.px??e.x)-P.x, py2=(e.py??e.y)-P.y, dPrev2=px2*px2+py2*py2;
+  if(Math.min(dNow2,dPrev2)>maxD2)return null;
   // Check a subset on mobile/large garrisons for performance, but keep it deterministic-looking.
   const stride=drawN>90?2:1;
   for(let k=0;k<drawN;k+=stride){
-    const s=orbitPos(P,k,drawN);
+    const s=orbitPosCached(P,k);
     const d2=segPointDistSq(e.px??e.x,e.py??e.y,e.x,e.y,s.x,s.y);
     if(d2<=hitR2)return s;
   }
@@ -2206,12 +2222,15 @@ function updateParticles(dt){
       u.state='move';
       const th=u.threat;
       if(th && !th.removed && th.owner!==u.owner){ u.target=null; u.dest={x:th.x+(th.vx||0)*.3, y:th.y+(th.vy||0)*.3}; }
-      else { const hp=nodes.find(n=>n.id===u.home);
+      else { const hp=nodes[u.home];
         if(hp&&hp.owner===u.owner){ u.target=u.home; u.dest=null; } else { u.target=null; if(!u.dest)u.dest={x:u.x,y:u.y}; } }
     }
     // resolve aim
+    // node ids are dense array indices assigned in buildLevel and the nodes array is
+    // never spliced mid-level, so a direct index is equivalent to nodes.find(n=>n.id===id)
+    // but O(1) instead of O(nodes) — this runs once per particle per frame.
     let t=null;
-    if(u.target!=null){ t=nodes.find(n=>n.id===u.target);
+    if(u.target!=null){ t=nodes[u.target];
       if(!t){ u.state='hold'; u.target=null; u.dest={x:u.x,y:u.y}; } }
     if(u.state==='hold'){ // idle: settle onto the hold point, then breathe gently in place
       if(u.dest){ const ddx=u.dest.x-u.x, ddy=u.dest.y-u.y, dd=Math.hypot(ddx,ddy);
@@ -2221,14 +2240,17 @@ function updateParticles(dt){
     }
     const aimX=t?t.x:u.dest.x, aimY=t?t.y:u.dest.y;
     // nebula slow
-    let nebK=1; for(const nb of nebulae){ if(Math.hypot(u.x-nb.x,u.y-nb.y)<nb.r){nebK=.5;break} }
+    let nebK=1; for(const nb of nebulae){ const nx0=u.x-nb.x, ny0=u.y-nb.y; if(nx0*nx0+ny0*ny0<nb.r*nb.r){nebK=.5;break} }
     // desired direction + steering around friendly (non-target) planets
     let dx=aimX-u.x, dy=aimY-u.y, dd=Math.hypot(dx,dy)||1, ax=dx/dd, ay=dy/dd;
     for(const p2 of nodes){
       if(p2.owner!==u.owner)continue;
       if(t&&p2.id===u.target)continue;
-      const rx=u.x-p2.x, ry=u.y-p2.y, rd=Math.hypot(rx,ry)||1, safe=p2.r+14;
-      if(rd<safe+18){ const push=(safe+18-rd)/(safe+18);
+      // squared-distance gate first — this loop runs for every node against every particle
+      // every frame, so skipping the sqrt for the (common) out-of-range case matters a lot
+      // once unit counts get large. Same math as before once inside the range check.
+      const rx=u.x-p2.x, ry=u.y-p2.y, safe=p2.r+14, lim=safe+18, r2=rx*rx+ry*ry;
+      if(r2<lim*lim){ const rd=Math.sqrt(r2)||1, push=(lim-rd)/lim;
         ax+=(rx/rd)*push*1.7; ay+=(ry/rd)*push*1.7;
         const s=(Math.sin(u.seed)>0?1:-1);
         ax+=(-ry/rd)*push*1.05*s; ay+=(rx/rd)*push*1.05*s; }
@@ -2255,34 +2277,35 @@ function updateParticles(dt){
     // keep out of friendly non-target planets (hard)
     for(const p2 of nodes){
       if(p2.owner!==u.owner)continue; if(t&&p2.id===u.target)continue;
-      const rx=u.x-p2.x, ry=u.y-p2.y, rd=Math.hypot(rx,ry); const safe=p2.r+5;
-      if(rd<safe&&rd>0){ u.x=p2.x+rx/rd*safe; u.y=p2.y+ry/rd*safe; }
+      const rx=u.x-p2.x, ry=u.y-p2.y, safe=p2.r+5, r2=rx*rx+ry*ry;
+      if(r2<safe*safe&&r2>0){ const rd=Math.sqrt(r2); u.x=p2.x+rx/rd*safe; u.y=p2.y+ry/rd*safe; }
     }
     // wormhole teleport
     if(u.wcool>0)u.wcool-=dt;
-    if(u.wcool<=0){ for(const w of wormholes){ if(Math.hypot(u.x-w.x,u.y-w.y)<w.r){
+    if(u.wcool<=0){ for(const w of wormholes){ const wx=u.x-w.x, wy=u.y-w.y; if(wx*wx+wy*wy<w.r*w.r){
       const link=wormholes.find(x=>x.id===w.link); if(link){u.x=link.x+Math.cos(u.wig)*6;u.y=link.y+Math.sin(u.wig)*6;u.wcool=.6;burst(w.x,w.y,ownerColor(u.owner),8,.3);} break } } }
     // crossing a non-target planet of another colour -> attack it (consumes the unit)
     let consumed=false;
     for(const p2 of nodes){
       if(p2.owner===u.owner)continue;
       if(t&&p2.id===u.target)continue;
-      if(Math.hypot(u.x-p2.x,u.y-p2.y)<=p2.r+1.5){ hitPlanet(p2,u); u.removed=true; particles.splice(i,1); consumed=true; break; }
+      const cx=u.x-p2.x, cy=u.y-p2.y, clim=p2.r+1.5;
+      if(cx*cx+cy*cy<=clim*clim){ hitPlanet(p2,u); u.removed=true; particles.splice(i,1); consumed=true; break; }
     }
     if(consumed)continue;
     // arrival at explicit target planet: impact only when the ship actually touches
     // the planet disk, or its travelled segment crosses that disk. No early detonation.
     if(t){
-      const ar=t.r+2.0;
-      const nx=t.x, ny=t.y;
-      const curD=Math.hypot(u.x-nx,u.y-ny);
-      const crossed=segPointDistSq(u.px,u.py,u.x,u.y,nx,ny)<=ar*ar;
-      if(curD<=ar || crossed){
+      const ar=t.r+2.0, ar2=ar*ar;
+      const nx=t.x, ny=t.y, ddx=u.x-nx, ddy=u.y-ny;
+      const curClose=ddx*ddx+ddy*ddy<=ar2;
+      const crossed=segPointDistSq(u.px,u.py,u.x,u.y,nx,ny)<=ar2;
+      if(curClose || crossed){
         applyArrival(u,t); u.removed=true; particles.splice(i,1); continue;
       }
     }
     // arrival at empty destination -> stop and hold
-    if(!t&&u.dest&&Math.hypot(u.x-u.dest.x,u.y-u.dest.y)<8){ u.state='hold'; }
+    if(!t&&u.dest){ const hdx=u.x-u.dest.x, hdy=u.y-u.dest.y; if(hdx*hdx+hdy*hdy<64){ u.state='hold'; } }
   }
 }
 function hitPlanet(t,u){
@@ -2314,7 +2337,6 @@ function hitPlanet(t,u){
       noteCapture(t,u.owner,oldOwner,wasBoss);
       impactBurst(t.x,t.y,oldOwner==='player'?'#ff5d73':'#9fb0c8',wasBoss?2.6:1.5); burst(t.x,t.y,'#9fb0c8',wasBoss?38:24,wasBoss?.94:.68); sfx('capture'); haptic(wasBoss?[22,34,22]:14);
       if(u.owner==='player' && (wasBoss||wasLarge))cameraPunch(wasBoss?1.6:.9,wasBoss?.5:.34);
-      if(oldOwner==='player'){toast.textContent='PLANETA PERDIDO';toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),900)}
       if(wasBoss){toast.textContent=(t.bossName||'JEFE')+' NEUTRALIZADO';toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1100)}
       if(u.owner==='player')help.textContent=en?'Knocked to neutral — spend 10 more to claim it.':'Pasó a gris: gasta otros 10 para hacerlo tuyo.';
     }
@@ -2347,17 +2369,17 @@ function orbitingGarrisonCombat(){
     const A=nodes[a]; if(A.owner==='neutral'||A.count<1)continue;
     for(let b=a+1;b<nodes.length;b++){
       const B=nodes[b]; if(B.owner==='neutral'||B.owner===A.owner||B.count<1)continue;
-      const centerD=Math.hypot(A.x-B.x,A.y-B.y);
-      const bandA=A.r+26+A.level*6, bandB=B.r+26+B.level*6;
-      if(centerD>bandA+bandB+8)continue;
+      const bandA=A.r+26+A.level*6, bandB=B.r+26+B.level*6, bandLim=bandA+bandB+8;
+      const abx=A.x-B.x, aby=A.y-B.y;
+      if(abx*abx+aby*aby>bandLim*bandLim)continue;
       const nA=Math.min(Math.floor(A.count),PERF.maxOrbit);
       const nB=Math.min(Math.floor(B.count),PERF.maxOrbit);
       const strideA=nA>85?2:1, strideB=nB>85?2:1;
       let hits=0;
       for(let i=0;i<nA && hits<8;i+=strideA){
-        const pa=orbitPos(A,i,nA);
+        const pa=orbitPosCached(A,i);
         for(let j=0;j<nB && hits<8;j+=strideB){
-          const pb=orbitPos(B,j,nB);
+          const pb=orbitPosCached(B,j);
           const dx=pa.x-pb.x, dy=pa.y-pb.y;
           if(dx*dx+dy*dy<=hitR2){
             A.count=Math.max(0,A.count-1);
@@ -2562,7 +2584,7 @@ function updateBossAbilities(dt){
   for(const p of nodes){
     if(!p.boss||p.owner==='neutral')continue;
     p.abilityPulse=Math.max(0,(p.abilityPulse||0)-dt);
-    if((p.abilityCd||99)<=2.2 && !p.abilityWarned){p.abilityWarned=true;showBossWarning(p)}
+    if((p.abilityCd||99)<=2.2 && !p.abilityWarned){p.abilityWarned=true}
     if(!p.bossPhase2 && p.count<=Math.max(8,Math.round((FACTION_START+bossStartBonus(constIndex,levelIndex))*0.55))){
       p.bossPhase2=true; p.abilityCd=Math.min(p.abilityCd||99,2.1); p.prod*=1.18; p.glowBoost=Math.max(p.glowBoost,1.28);
       bossEffects.push({type:'phase',x:p.x,y:p.y,owner:p.owner,age:0,life:1.7,maxR:p.r*4.8});
@@ -2776,27 +2798,6 @@ function incomingThreatTo(node){
     }
   }
   return n;
-}
-function updatePlayerThreatWarnings(dt){
-  // Give the player the same early-warning read the AI already has on itself via
-  // incomingThreatTo()/aiRedirection(): a pulsing ring plus a one-shot banner when a
-  // planet is about to take damage that actually matters, not just a stray probe.
-  for(const p of nodes){
-    if(p.owner!=='player')continue;
-    p.threatWarnCd=Math.max(0,(p.threatWarnCd||0)-dt);
-    p.threatPulse=Math.max(0,(p.threatPulse||0)-dt);
-    const incoming=incomingThreatTo(p);
-    if(incoming<5)continue;
-    const localDefense=Math.floor(p.count||0);
-    const damageRisk=incoming-(localDefense*.28)-Math.max(0,(p.hp||0)-3)*.18;
-    const wouldMatter=damageRisk>=Math.max(4,Math.min(13,(p.hp||10)*.55+(p.level-1)*2));
-    if(!wouldMatter)continue;
-    p.threatPulse=1.4;
-    if(p.threatWarnCd>0)continue;
-    p.threatWarnCd=7.5;
-    if(bossWarning){bossWarning.textContent='ALERTA · PLANETA EN PELIGRO';bossWarning.classList.add('show');setTimeout(()=>bossWarning.classList.remove('show'),1400)}
-    sfx('event'); haptic([12,16,12]);
-  }
 }
 let aiRedirectionCursor=0;
 function aiRedirection(){
@@ -3379,10 +3380,6 @@ function drawBossEffects(){
       ctx.fillStyle=g; ctx.beginPath(); ctx.arc(fx.x,fx.y,r,0,TAU); ctx.fill();
       for(let k=0;k<5;k++){ const ang=t*TAU*1.4+k*(TAU/5); ctx.strokeStyle='rgba('+theme.core+','+(.18-k*.02)+')'; ctx.lineWidth=1.1; ctx.beginPath(); ctx.moveTo(fx.x,fx.y); ctx.lineTo(fx.x+Math.cos(ang)*r,fx.y+Math.sin(ang)*r); ctx.stroke(); }
       ctx.strokeStyle='rgba('+theme.glow+','+a+')'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(fx.x,fx.y,r*.82,0,TAU); ctx.stroke();
-    }else if(fx.type==='warning'){
-      const r=fx.maxR*(.55+.45*Math.sin(t*Math.PI)), a=(1-t)*.62;
-      ctx.strokeStyle='rgba(255,210,120,'+a+')'; ctx.setLineDash([6,7]); ctx.lineWidth=2.2; ctx.beginPath(); ctx.arc(fx.x,fx.y,r,0,TAU); ctx.stroke(); ctx.setLineDash([]);
-      ctx.strokeStyle='rgba(255,255,255,'+(a*.3)+')'; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(fx.x,fx.y,r*.72,0,TAU); ctx.stroke();
     }else if(fx.type==='captureFlare'){
       // conquest flare for a large/boss planet capture — themed by the attacker's colour,
       // not the galaxy palette, so it reads as "you did this" rather than an ambient effect.
@@ -3447,6 +3444,18 @@ function orbitPos(p,i,total){
   let ox=ca*rr, oy=sa*rr*ecc;
   return {x:p.x+ox*ct-oy*st, y:p.y+ox*st+oy*ct, front:sa>0, seed};
 }
+// orbitPos's `total` param is unused inside it — a defender's position depends only on
+// (planet, index, elapsed) — so within a single frame the same (planet,index) is safe to
+// memoize. This position is independently recomputed from up to three call sites per frame
+// (update-phase combat checks in orbitingDefenderHit/orbitingGarrisonCombat, plus the two
+// draw-phase passes in drawOrbit); with many units this cache turns repeat trig work into
+// a cache hit instead of a fresh sin/cos each time.
+function orbitPosCached(p,i){
+  if(p._opElapsed!==elapsed){p._opElapsed=elapsed;p._opCache=[];}
+  let v=p._opCache[i];
+  if(v===undefined){v=orbitPos(p,i,0);p._opCache[i]=v;}
+  return v;
+}
 function drawOrbit(p,front){
   if(p.owner==='neutral'&&p.count<=0&&!front){ /* still draw faint defenders */ }
   const col=ownerColor(p.owner), n=Math.floor(p.count), drawN=Math.min(n,PERF.maxOrbit);
@@ -3458,7 +3467,7 @@ function drawOrbit(p,front){
   if(useBlur){ctx.shadowColor=col;ctx.shadowBlur=(PERF.mobile?3:7)*PERF.fx;}
   ctx.fillStyle=hexToRgba(col,(p.owner==='neutral'? .5:.92));
   for(let i=0;i<drawN;i++){
-    const s=orbitPos(p,i,drawN); if(s.front!==front)continue;
+    const s=orbitPosCached(p,i); if(s.front!==front)continue;
     const pulse=.85+.3*Math.sin(elapsed*3+s.seed);
     ctx.beginPath();ctx.arc(s.x,s.y,(1.3+(i%3)*.12)*pulse,0,TAU);ctx.fill();
   }
@@ -3466,11 +3475,17 @@ function drawOrbit(p,front){
   ctx.restore();
 }
 
-function planetPath(p,r,soft){
-  ctx.beginPath();
+function planetShapeProfile(p){
+  // The per-angle shape wobble depends only on a planet's seed/kind, never on its radius,
+  // position or the caller's soft flag — but planetPath() is called ~4x per planet per frame
+  // (fill, two outline strokes, texture clip) with a fresh 49-step sin/cos loop each time.
+  // Precomputing the unit-circle profile once per planet (invalidated only if seed/kind ever
+  // change) turns three of those four calls into cheap multiply-and-translate loops.
+  if(p._shapeCache && p._shapeSeed===p.seed && p._shapeKind===p.kind) return p._shapeCache;
   const steps=48;
   const shape=(Math.floor((p.seed||1)*.017)%5);
   const kind=p.kind||'terra';
+  const arr=new Array(steps+1);
   for(let i=0;i<=steps;i++){
     const a=i/steps*TAU;
     let w1=Math.sin(a*(2+shape%3)+(p.seed||0)*.013)*.018;
@@ -3502,9 +3517,18 @@ function planetPath(p,r,soft){
       extra+=Math.sin(a*2+(p.seed||0)*.01)*.026 + Math.max(0,Math.cos(a-.2))*.022;
       skewY+=.07;
     }
-    const rr=r*(1+(soft?0:w1+w2+flat+extra));
-    const x=p.x+Math.cos(a)*rr;
-    const y=p.y+Math.sin(a)*rr*(1+skewY);
+    arr[i]={ca:Math.cos(a),sa:Math.sin(a),mult:1+w1+w2+flat+extra,skewY};
+  }
+  p._shapeCache=arr; p._shapeSeed=p.seed; p._shapeKind=p.kind;
+  return arr;
+}
+function planetPath(p,r,soft){
+  ctx.beginPath();
+  const profile=planetShapeProfile(p);
+  for(let i=0;i<profile.length;i++){
+    const s=profile[i], rr=soft?r:r*s.mult;
+    const x=p.x+s.ca*rr;
+    const y=p.y+s.sa*rr*(1+s.skewY);
     if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
   }
   ctx.closePath();
@@ -3592,18 +3616,6 @@ function drawSun(p){
     ctx.fillStyle=grow;ctx.beginPath();ctx.arc(p.x,p.y,growR+22,0,TAU);ctx.fill();
     ctx.strokeStyle=hexToRgba(tint,.22*PERF.fx*shimmer);ctx.lineWidth=1.05;ctx.beginPath();ctx.arc(p.x,p.y,growR,0,TAU);ctx.stroke();
     ctx.strokeStyle=hexToRgba('#eafcff',.06*PERF.fx*shimmer);ctx.lineWidth=.7;ctx.beginPath();ctx.arc(p.x,p.y,growR+4.5,0,TAU);ctx.stroke();
-    ctx.restore();
-  }
-  if(p.owner==='player' && Number(p.threatPulse||0)>0){
-    // Incoming-threat warning ring: pulses red/orange around a player planet that is
-    // about to take meaningful damage, mirroring the analysis the AI already uses on itself.
-    ctx.save();ctx.globalCompositeOperation='screen';
-    const k=clamp(p.threatPulse/1.4,0,1), pulse=.6+.4*Math.sin(elapsed*9+p.seed);
-    const ringR=p.r+13+pulse*4;
-    ctx.strokeStyle='rgba(255,90,90,'+(.55*k*PERF.fx)+')';ctx.lineWidth=2.2;ctx.setLineDash([7,6]);
-    ctx.beginPath();ctx.arc(p.x,p.y,ringR,0,TAU);ctx.stroke();ctx.setLineDash([]);
-    ctx.strokeStyle='rgba(255,180,90,'+(.28*k*PERF.fx)+')';ctx.lineWidth=1;
-    ctx.beginPath();ctx.arc(p.x,p.y,ringR+5,0,TAU);ctx.stroke();
     ctx.restore();
   }
   // outer aura (breathing; dims as vitality fades, flickers when a gray planet is being contested)
@@ -4033,20 +4045,20 @@ function renderConsts(){
     if(imp)imp.onclick=()=>{const input=$('progressImportInput'); if(input){input.value=''; input.click();}};
     if(rst)rst.onclick=resetCampaignProfile;
   }
-  CONSTS.forEach((c,i)=>{if(c.custom||c.skirmish)return;const unlocked=constUnlocked(i);
+  CONSTS.forEach((c,i)=>{if(c.custom||c.skirmish)return;const incomplete=!constCleared(i);
     const done=c.levels.filter((_,l)=>progress[levelKey(i,l)]).length;
     const last=c.levels[c.levels.length-1]||{nodes:[]};
     const maxPlanets=last.nodes.length, maxEnemies=last.nodes.filter(n=>isHostile(n[2])).length;
     const hazardMax=c.levels.reduce((a,m)=>Math.max(a,(m.hazards?m.hazards.length:0)+(m.pulsars?m.pulsars.length:0)+(m.wormholes?m.wormholes.length:0)+(m.nebula?m.nebula.length:0)),0);
     const pct=Math.round(done/c.levels.length*100), threat=['Baja','Media','Alta','Crítica'][Math.min(3,Math.floor(i/3))];
     const hue=[['rgba(63,224,255,.22)','26%','22%'],['rgba(120,180,255,.20)','74%','24%'],['rgba(120,255,190,.16)','30%','26%'],['rgba(255,210,90,.17)','76%','30%'],['rgba(255,130,80,.18)','24%','72%'],['rgba(120,100,255,.20)','78%','70%'],['rgba(180,130,255,.20)','30%','30%'],['rgba(255,80,120,.16)','74%','68%'],['rgba(90,180,255,.20)','28%','70%'],['rgba(255,245,180,.18)','75%','24%']][i%10];
-    const b=document.createElement('button');b.className='choice galaxyChoice'+(i===constIndex?' active':'')+(unlocked?'':' locked');
+    const b=document.createElement('button');b.className='choice galaxyChoice'+(i===constIndex?' active':'')+(incomplete?' incomplete':'');
     b.style.setProperty('--gc',hue[0]);b.style.setProperty('--gx',hue[1]);b.style.setProperty('--gy',hue[2]);b.style.setProperty('--rot',(i*23+12)+'deg');
     const pathDots=c.levels.map((m,li)=>'<i class="galaxyDot '+(progress[levelKey(i,li)]?'done ':'')+(li===9?'boss':'')+'"></i>').join('');
     const bossName=(c.levels[9]&&c.levels[9].bossName)||GALAXY_BOSSES[i%GALAXY_BOSSES.length];
     const biomeCount=new Set(c.levels.flatMap(m=>m.nodes.map(n=>n[5]||'terra'))).size;
-    b.innerHTML='<div class="galaxyArt"><div class="galaxyCore"></div><div class="galaxyArm"></div><div class="galaxyArm two"></div><div class="galaxyArm three"></div></div><div class="galaxyProgressText">G'+(i+1)+' · '+pct+'%</div><div class="galaxyContent"><div class="choiceTitle">'+c.name+'</div><div class="galaxyLore">'+(GALAXY_LORE[i]?GALAXY_LORE[i][1]:c.meta)+'</div><div class="galaxyMetaLine"><span class="galaxyPill">'+done+'/'+c.levels.length+' niveles</span><span class="galaxyPill">'+maxPlanets+' planetas</span><span class="galaxyPill">'+maxEnemies+' IAs</span><span class="galaxyPill">'+biomeCount+' biomas</span><span class="galaxyPill">'+(hazardMax?hazardMax+' peligros':'sin peligros')+'</span></div><div class="galaxyPath">'+pathDots+'</div><div class="galaxyBar"><i style="width:'+pct+'%"></i></div></div><div class="galaxyBossBadge">Jefe: '+bossName+'</div><div class="galaxyThreat">Amenaza '+threat+'</div><div class="galaxyLockedVeil"></div>';
-    b.onclick=()=>{ if(!unlocked){help.textContent=T('completeFirst');return} constIndex=i;levelIndex=0;showMenuScreen('map') };
+    b.innerHTML='<div class="galaxyArt"><div class="galaxyCore"></div><div class="galaxyArm"></div><div class="galaxyArm two"></div><div class="galaxyArm three"></div></div><div class="galaxyProgressText">G'+(i+1)+' · '+pct+'%</div><div class="galaxyContent"><div class="choiceTitle">'+c.name+'</div><div class="galaxyLore">'+(GALAXY_LORE[i]?GALAXY_LORE[i][1]:c.meta)+'</div><div class="galaxyMetaLine"><span class="galaxyPill">'+done+'/'+c.levels.length+' niveles</span><span class="galaxyPill">'+maxPlanets+' planetas</span><span class="galaxyPill">'+maxEnemies+' IAs</span><span class="galaxyPill">'+biomeCount+' biomas</span><span class="galaxyPill">'+(hazardMax?hazardMax+' peligros':'sin peligros')+'</span></div><div class="galaxyPath">'+pathDots+'</div><div class="galaxyBar"><i style="width:'+pct+'%"></i></div></div><div class="galaxyBossBadge">Jefe: '+bossName+'</div><div class="galaxyThreat">Amenaza '+threat+'</div></div>';
+    b.onclick=()=>{ constIndex=i;levelIndex=0;showMenuScreen('map') };
     box.appendChild(b);
   });
 }
@@ -4055,8 +4067,8 @@ function renderLevels(){
   const c=CONSTS[constIndex]; const intro=$('phaseIntro');
   if(intro)intro.textContent=c.name+' · '+((GALAXY_LORE[constIndex]&&GALAXY_LORE[constIndex][1])||c.meta)+' · Dificultad: '+difficultyCfg().name;
   box.innerHTML='';
-  c.levels.forEach((m,i)=>{const unlocked=isUnlocked(constIndex,i), stars=progress[levelKey(constIndex,i)]||0;
-    const b=document.createElement('button');b.className='choice'+(m.specialGlow?' finalLevel':'')+(i===levelIndex?' active':'')+(unlocked?'':' locked');
+  c.levels.forEach((m,i)=>{const stars=progress[levelKey(constIndex,i)]||0, incomplete=stars<=0;
+    const b=document.createElement('button');b.className='choice'+(m.specialGlow?' finalLevel':'')+(i===levelIndex?' active':'')+(incomplete?' incomplete':'');
     const enemies=m.nodes.filter(n=>isHostile(n[2])).length, planets=m.nodes.length;
     const hazards=(m.hazards?m.hazards.length:0)+(m.pulsars?m.pulsars.length:0)+(m.wormholes?m.wormholes.length:0)+(m.nebula?m.nebula.length:0), biomes=new Set(m.nodes.map(n=>n[5]||'terra')).size;
     const mission=missionForLevel(constIndex,i,m), best=(progress._best||{})[levelKey(constIndex,i)];
@@ -4065,8 +4077,8 @@ function renderLevels(){
       '<span class="missionBadge">'+mission.label+': '+mission.desc+'</span>'+
       (best?'<div class="choiceMeta">Mejor: '+best.score+' · '+best.style+' · '+fmtTime(best.time||0)+'</div>':'')+
       (m.specialGlow?'<span class="levelBossTag">Final · '+(m.bossName||GALAXY_BOSSES[constIndex%GALAXY_BOSSES.length])+'</span>':'')+
-      '<div class="stars">'+(unlocked?('★'.repeat(stars)+'☆'.repeat(3-stars)):'🔒')+'</div>';
-    b.onclick=()=>{ if(!unlocked){help.textContent=T('completeFirst');return} levelIndex=i;renderLevels() };
+      '<div class="stars">'+('★'.repeat(stars)+'☆'.repeat(3-stars))+'</div>';
+    b.onclick=()=>{ levelIndex=i;renderLevels() };
     box.appendChild(b);
   });
 }
