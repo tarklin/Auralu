@@ -629,12 +629,11 @@ let spaceEvent={kind:null,age:0,life:0,cooldown:0,tick:0,seed:0};
 let battleStats={sent:0,captures:0,lost:0,bosses:0,events:0,peakParticles:0,perfect:true,warnings:0};
 
 const PALETTE={player:'#3fe0ff', red:'#ff5d73', green:'#42f08a', yellow:'#ffd44e', violet:'#b47bff', orange:'#ff9a3d', neutral:'#8392a8'};
-// Solar-system-style variety for unclaimed (grey) planets: before this, every neutral world
-// used the exact same flat grey fill regardless of its "kind" — the kind only nudged a
-// pseudo-random texture pattern. This gives each kind its own base hue so a gas giant, an ice
-// moon, a Mars-like ember world, etc. actually read as different planets at a glance. Owned
-// planets keep their faction colour untouched — that stays the primary "who owns this" signal.
-const NEUTRAL_KIND_COLOR={terra:'#5fb0a0',gas:'#d9a860',ice:'#bfe6f2',ember:'#c9704a',ring:'#e0c98a',ocean:'#4a8fc2',crystal:'#b98fe0',fungal:'#8fd66a'};
+// Unclaimed (grey) planets should stay unmistakably grey — they haven't been fought over yet,
+// so colour there would read as "owned by someone". Variety instead comes from distinct shades
+// of grey per kind (a touch cooler/warmer, lighter/darker) plus the shape/ring/texture work in
+// drawPlanetOrganicTexture — never full saturation. Owned planets keep their faction colour.
+const NEUTRAL_KIND_COLOR={terra:'#8a9690',gas:'#9c9484',ice:'#c9d0d4',ember:'#7d726c',ring:'#a89f8c',ocean:'#7e8890',crystal:'#93899c',fungal:'#849184'};
 function neutralPlanetColor(kind){return NEUTRAL_KIND_COLOR[kind]||PALETTE.neutral}
 const PLAYER_SKINS=[
   {id:'cyan',name:'Azul Afterlight',color:'#3fe0ff',req:'Inicio'},
